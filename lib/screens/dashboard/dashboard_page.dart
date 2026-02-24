@@ -9,6 +9,9 @@ import '../auth/login_page.dart';
 import '../profile/profile_page.dart';
 import '../../utils/app_colors.dart';
 import '../settings/settings_page.dart';
+import '../../utils/custom_snackbar.dart';
+import '../../utils/activity_logger.dart';
+import '../profile/admin_panel_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -173,6 +176,43 @@ class _DashboardPageState extends State<DashboardPage> {
     } catch (e) {
       debugPrint("Error Dashboard: $e");
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ========================================== //
+  // LOGOUT FUNCTION //
+  // ========================================== //
+  Future<void> _logout(BuildContext context) async {
+    try {
+      // 1. Matikan lampu status jadi Offline
+      await ActivityLogger.updateOnlineStatus(false);
+
+      // 2. Catat log bahwa user ini keluar dari aplikasi
+      await ActivityLogger.logAction(
+        actionType: "LOGOUT",
+        description: "Pengguna keluar dari sistem",
+      );
+
+      // 3. Hapus token sesi dengan aman menggunakan Supabase Auth
+      await Supabase.instance.client.auth.signOut();
+
+      // 4. Bersihkan memori variabel global
+      currentUserNik = '';
+      currentUserName = '';
+      currentUserRole = '';
+
+      // 5. Arahkan kembali ke halaman Login secara total (menghapus riwayat 'back')
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (c) => const LoginPage()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        CustomSnackBar.show(context, "Gagal logout: $e", Colors.red);
+      }
     }
   }
 
@@ -849,51 +889,66 @@ class _DashboardPageState extends State<DashboardPage> {
                   // Lebar penuh di layar sempit, fixed 190 di lebar
                   width: isWide ? 190 : double.infinity,
                   height: 36,
-                  child: TextField(
-                    controller: _searchListController,
-                    onChanged: _runFilter,
-                    style: TextStyle(color: context.textPrimary, fontSize: 12),
-                    decoration: InputDecoration(
-                      hintText: "Cari toko...",
-                      hintStyle: TextStyle(
-                        color: context.textSecondary,
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      textSelectionTheme: TextSelectionThemeData(
+                        cursorColor: context.accentColor, // Warna garis kursor
+                        selectionColor: context.accentColor.withOpacity(
+                          0.3,
+                        ), // Warna blok teks
+                        selectionHandleColor:
+                            context.accentColor, // Warna pentolan kursor di HP
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _searchListController,
+                      onChanged: _runFilter,
+                      style: TextStyle(
+                        color: context.textPrimary,
                         fontSize: 12,
                       ),
-                      prefixIcon: Icon(
-                        Icons.search,
-                        size: 16,
-                        color: context.textSecondary,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 0,
-                        horizontal: 10,
-                      ),
-                      filled: true,
-                      fillColor: context.surfaceColor,
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: context.borderColor),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(
-                          color: context.accentColor,
-                          width: 1.5,
+                      decoration: InputDecoration(
+                        hintText: "Cari toko...",
+                        hintStyle: TextStyle(
+                          color: context.textSecondary,
+                          fontSize: 12,
                         ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          size: 16,
+                          color: context.textSecondary,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 0,
+                          horizontal: 10,
+                        ),
+                        filled: true,
+                        fillColor: context.surfaceColor,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: context.borderColor),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(
+                            color: context.accentColor,
+                            width: 1.5,
+                          ),
+                        ),
+                        suffixIcon: _searchListController.text.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(
+                                  Icons.clear,
+                                  size: 14,
+                                  color: context.textSecondary,
+                                ),
+                                onPressed: () {
+                                  _searchListController.clear();
+                                  _runFilter('');
+                                },
+                              )
+                            : null,
                       ),
-                      suffixIcon: _searchListController.text.isNotEmpty
-                          ? IconButton(
-                              icon: Icon(
-                                Icons.clear,
-                                size: 14,
-                                color: context.textSecondary,
-                              ),
-                              onPressed: () {
-                                _searchListController.clear();
-                                _runFilter('');
-                              },
-                            )
-                          : null,
                     ),
                   ),
                 );
@@ -1398,6 +1453,19 @@ class _DashboardPageState extends State<DashboardPage> {
               );
             },
           ),
+
+          _buildDrawerTile(
+            icon: Icons.person_outline,
+            label: 'Profil Saya',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (c) => const ProfilePage()),
+              );
+            },
+          ),
+
           if (currentUserRole.toLowerCase() == 'administrator') ...[
             // Menu Setting hanya akan dirender/digambar jika rolenya administrator
             _buildDrawerTile(
@@ -1412,17 +1480,21 @@ class _DashboardPageState extends State<DashboardPage> {
               },
             ),
           ],
-          _buildDrawerTile(
-            icon: Icons.person_outline,
-            label: 'Profil Saya',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => const ProfilePage()),
-              );
-            },
-          ),
+
+          if (currentUserRole.toLowerCase() == 'administrator') ...[
+            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
+            _buildDrawerTile(
+              icon: Icons.admin_panel_settings_outlined,
+              label: 'Control Center',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (c) => const AdminPanelPage()),
+                );
+              },
+            ),
+          ],
           const Spacer(),
           Container(
             height: 1,
@@ -1551,18 +1623,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
-                              currentUserNik = '';
-                              currentUserName = '';
-                              currentUserRole = '';
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (c) => const LoginPage(),
-                                ),
-                                (route) => false,
-                              );
-                            },
+                            onPressed: () => _logout(context),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFFF6B6B),
                               padding: const EdgeInsets.symmetric(vertical: 13),

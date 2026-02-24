@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../utils/encryption_helper.dart';
+
 import '../../utils/custom_snackbar.dart';
 import '../auth/login_page.dart';
 import '../dashboard/dashboard_page.dart';
 import '../store_management/store_list_page.dart';
 import '../../utils/app_colors.dart';
 import '../profile/profile_page.dart';
+import '../../utils/activity_logger.dart';
+import '../profile/admin_panel_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -107,38 +109,112 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _saveManageUser() async {
-    if (_nikUserCtrl.text.isEmpty || _namaUserCtrl.text.isEmpty) {
-      CustomSnackBar.show(context, "NIK & Nama wajib diisi!", Colors.red);
+    // Pastikan semua kolom diisi, karena Supabase Auth butuh password
+    if (_nikUserCtrl.text.isEmpty ||
+        _namaUserCtrl.text.isEmpty ||
+        _passUserCtrl.text.isEmpty) {
+      CustomSnackBar.show(
+        context,
+        "NIK, Nama, dan Password wajib diisi!",
+        Colors.red,
+      );
       return;
     }
+
     setState(() => _isLoading = true);
+
     try {
-      Map<String, dynamic> data = {
-        'nik': _nikUserCtrl.text,
-        'nama': _namaUserCtrl.text,
-        'role': _selectedRole,
-      };
-      if (_passUserCtrl.text.isNotEmpty) {
-        data['password'] = EncryptionHelper.hashPassword(_passUserCtrl.text);
+      // Bersihkan semua spasi yang mungkin nyelip di tengah NIK
+      final String cleanNik = _nikUserCtrl.text.trim().replaceAll(' ', '');
+
+      // Gunakan .com agar 100% lolos validasi keamanan Supabase
+      final String fakeEmail = '$cleanNik@edp.com';
+
+      // 1. Daftarkan akun baru ke sistem kunci utama (Supabase Auth)
+      final AuthResponse res = await Supabase.instance.client.auth.signUp(
+        email: fakeEmail,
+        password: _passUserCtrl.text.trim(),
+      );
+
+      // 2. Jika berhasil terdaftar di Auth, simpan detailnya ke tabel profiles
+      if (res.user != null) {
+        await Supabase.instance.client.from('profiles').insert({
+          'id': res.user!.id, //
+          'nik': _nikUserCtrl.text.trim(),
+          'nama': _namaUserCtrl.text.trim(),
+          'role': _selectedRole,
+        });
+
+        await ActivityLogger.logAction(
+          actionType: "TAMBAH_USER",
+          description:
+              "Menambahkan akun baru: ${_namaUserCtrl.text.trim()} ($_selectedRole)",
+        );
+
+        if (mounted) {
+          CustomSnackBar.show(
+            context,
+            "Akun ${_nikUserCtrl.text} berhasil ditambahkan!",
+            Colors.green,
+          );
+          // Bersihkan form setelah sukses
+          _nikUserCtrl.clear();
+          _namaUserCtrl.clear();
+          _passUserCtrl.clear();
+          setState(() => _selectedRole = 'user');
+        }
       }
-      await Supabase.instance.client.from('profiles').upsert(data);
+    } on AuthException catch (e) {
       if (mounted) {
         CustomSnackBar.show(
           context,
-          "Data User ${_nikUserCtrl.text} tersimpan!",
-          Colors.green,
+          "Gagal daftar akun: ${e.message}",
+          Colors.red,
         );
-        _nikUserCtrl.clear();
-        _namaUserCtrl.clear();
-        _passUserCtrl.clear();
-        setState(() => _selectedRole = 'user');
       }
     } catch (e) {
       if (mounted) {
-        CustomSnackBar.show(context, "Gagal simpan user: $e", Colors.red);
+        CustomSnackBar.show(context, "Gagal simpan profil: $e", Colors.red);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ========================================== //
+  // LOGOUT FUNCTION //
+  // ========================================== //
+  Future<void> _logout(BuildContext context) async {
+    try {
+      // 1. Matikan lampu status jadi Offline
+      await ActivityLogger.updateOnlineStatus(false);
+
+      // 2. Catat log bahwa user ini keluar dari aplikasi
+      await ActivityLogger.logAction(
+        actionType: "LOGOUT",
+        description: "Pengguna keluar dari sistem",
+      );
+
+      // 3. Hapus token sesi dengan aman menggunakan Supabase Auth
+      await Supabase.instance.client.auth.signOut();
+
+      // 4. Bersihkan memori variabel global
+      currentUserNik = '';
+      currentUserName = '';
+      currentUserRole = '';
+
+      // 5. Arahkan kembali ke halaman Login secara total (menghapus riwayat 'back')
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (c) => const LoginPage()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        CustomSnackBar.show(context, "Gagal logout: $e", Colors.red);
+      }
     }
   }
 
@@ -1546,6 +1622,18 @@ class _SettingsPageState extends State<SettingsPage> {
               );
             },
           ),
+          _buildDrawerTile(
+            icon: Icons.person_outline,
+            label: 'Profil Saya',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (c) => const ProfilePage()),
+              );
+            },
+          ),
+
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
             decoration: BoxDecoration(
@@ -1570,17 +1658,22 @@ class _SettingsPageState extends State<SettingsPage> {
               onTap: () => Navigator.pop(context),
             ),
           ),
-          _buildDrawerTile(
-            icon: Icons.person_outline,
-            label: 'Profil Saya',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (c) => const ProfilePage()),
-              );
-            },
-          ),
+
+          if (currentUserRole.toLowerCase() == 'administrator') ...[
+            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
+            _buildDrawerTile(
+              icon: Icons.admin_panel_settings_outlined,
+              label: 'Control Center',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (c) => const AdminPanelPage()),
+                );
+              },
+            ),
+          ],
+
           const Spacer(),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 12),
@@ -1709,18 +1802,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
-                              currentUserNik = '';
-                              currentUserName = '';
-                              currentUserRole = '';
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (c) => const LoginPage(),
-                                ),
-                                (route) => false,
-                              );
-                            },
+                            onPressed: () => _logout(context),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFFF6B6B),
                               padding: const EdgeInsets.symmetric(vertical: 13),

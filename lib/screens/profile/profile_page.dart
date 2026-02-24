@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../utils/encryption_helper.dart';
+// import '../../utils/encryption_helper.dart';
 import '../../utils/custom_snackbar.dart';
 import '../auth/login_page.dart';
 import '../dashboard/dashboard_page.dart';
 import '../store_management/store_list_page.dart';
 import '../../utils/app_colors.dart';
 import '../settings/settings_page.dart';
+import '../../utils/activity_logger.dart';
+import '../profile/admin_panel_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -68,6 +70,43 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       debugPrint("Gagal mengambil data user: $e");
       if (mounted) setState(() => _isLoadingUsers = false);
+    }
+  }
+
+  // ==========================================
+  // LOGOUT FUNCTION //
+  // ========================================== //
+  Future<void> _logout(BuildContext context) async {
+    try {
+      // 1. Matikan lampu status jadi Offline
+      await ActivityLogger.updateOnlineStatus(false);
+
+      // 2. Catat log bahwa user ini keluar dari aplikasi
+      await ActivityLogger.logAction(
+        actionType: "LOGOUT",
+        description: "Pengguna keluar dari sistem",
+      );
+
+      // 3. Hapus token sesi dengan aman menggunakan Supabase Auth
+      await Supabase.instance.client.auth.signOut();
+
+      // 4. Bersihkan memori variabel global
+      currentUserNik = '';
+      currentUserName = '';
+      currentUserRole = '';
+
+      // 5. Arahkan kembali ke halaman Login secara total (menghapus riwayat 'back')
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (c) => const LoginPage()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        CustomSnackBar.show(context, "Gagal logout: $e", Colors.red);
+      }
     }
   }
 
@@ -269,44 +308,75 @@ class _ProfilePageState extends State<ProfilePage> {
   // FUNGSI: UBAH PASSWORD PRIBADI
   // ==========================================
   Future<void> _updateMyPassword() async {
-    if (_oldPassCtrl.text.isEmpty || _newPassCtrl.text.isEmpty) {
+    final oldPass = _oldPassCtrl.text.trim();
+    final newPass = _newPassCtrl.text.trim();
+
+    if (oldPass.isEmpty || newPass.isEmpty) {
       CustomSnackBar.show(
         context,
-        "Password lama & baru harus diisi!",
+        "Password lama dan baru wajib diisi!",
         Colors.red,
       );
       return;
     }
+
+    // Supabase Auth merekomendasikan minimal 6 karakter
+    if (newPass.length < 6) {
+      CustomSnackBar.show(
+        context,
+        "Password baru minimal 6 karakter!",
+        Colors.red,
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
+
     try {
-      final oldHash = EncryptionHelper.hashPassword(_oldPassCtrl.text);
-      final newHash = EncryptionHelper.hashPassword(_newPassCtrl.text);
-      final check = await Supabase.instance.client
-          .from('profiles')
-          .select()
-          .eq('nik', currentUserNik)
-          .eq('password', oldHash)
-          .maybeSingle();
-      if (check == null) {
-        if (mounted)
-          CustomSnackBar.show(context, "Password lama salah!", Colors.red);
-        return;
+      final authClient = Supabase.instance.client.auth;
+      final currentEmail = authClient.currentUser?.email;
+
+      if (currentEmail == null) {
+        throw Exception("Sesi login tidak ditemukan.");
       }
-      await Supabase.instance.client
-          .from('profiles')
-          .update({'password': newHash})
-          .eq('nik', currentUserNik);
-      if (mounted) {
-        CustomSnackBar.show(
-          context,
-          "Password berhasil diperbarui!",
-          Colors.green,
+
+      // 1. Verifikasi password lama dengan cara mencoba Login diam-diam
+      try {
+        await authClient.signInWithPassword(
+          email: currentEmail,
+          password: oldPass,
         );
+      } on AuthException catch (_) {
+        // Jika error di tahap ini, berarti password lamanya SALAH
+        if (mounted) {
+          CustomSnackBar.show(
+            context,
+            "Gagal: Password lama Anda salah!",
+            Colors.red,
+          );
+          setState(() => _isLoading = false);
+        }
+        return; // Hentikan eksekusi karena password lama salah
+      }
+
+      // 2. Jika lolos (password lama benar), maka update ke password baru
+      await authClient.updateUser(UserAttributes(password: newPass));
+
+      // 3. Catat di CCTV / Log Aktivitas
+      await ActivityLogger.logAction(
+        actionType: "UBAH_PASSWORD",
+        description: "Pengguna mengubah kata sandi akunnya",
+      );
+
+      if (mounted) {
+        CustomSnackBar.show(context, "Password berhasil diubah!", Colors.green);
         _oldPassCtrl.clear();
         _newPassCtrl.clear();
       }
     } catch (e) {
-      if (mounted) CustomSnackBar.show(context, "Error: $e", Colors.red);
+      if (mounted) {
+        CustomSnackBar.show(context, "Terjadi kesalahan: $e", Colors.red);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -1528,7 +1598,7 @@ class _ProfilePageState extends State<ProfilePage> {
       (
         Icons.tag_rounded,
         'Versi',
-        'v2.0 (Enterprise Build)',
+        'v2.1 (Enterprise Build)',
         context.accentColor,
       ),
       (Icons.build_circle_outlined, 'Build', '2026.02', context.textSecondary),
@@ -1550,7 +1620,7 @@ class _ProfilePageState extends State<ProfilePage> {
         'Material Design 3',
         const Color(0xFFFFB347),
       ),
-      (Icons.person_outline, 'Developer', 'Pahruroji', const Color(0xFFBB86FC)),
+      (Icons.person_outline, 'Developer', 'PAHRUROJI', const Color(0xFFBB86FC)),
 
       (
         Icons.copyright_outlined,
@@ -1671,7 +1741,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   child: Text(
-                    'v2.0.1',
+                    'v2.1',
                     style: TextStyle(
                       color: context.accentColor,
                       fontSize: 12,
@@ -2219,20 +2289,7 @@ class _ProfilePageState extends State<ProfilePage> {
               );
             },
           ),
-          if (currentUserRole.toLowerCase() == 'administrator') ...[
-            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
-            _buildDrawerTile(
-              icon: Icons.settings_outlined,
-              label: 'Setting',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (c) => const SettingsPage()),
-                );
-              },
-            ),
-          ],
+
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
@@ -2257,6 +2314,35 @@ class _ProfilePageState extends State<ProfilePage> {
               onTap: () => Navigator.pop(context),
             ),
           ),
+
+          if (currentUserRole.toLowerCase() == 'administrator') ...[
+            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
+            _buildDrawerTile(
+              icon: Icons.settings_outlined,
+              label: 'Setting',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (c) => const SettingsPage()),
+                );
+              },
+            ),
+          ],
+          if (currentUserRole.toLowerCase() == 'administrator') ...[
+            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
+            _buildDrawerTile(
+              icon: Icons.admin_panel_settings_outlined,
+              label: 'Control Center',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (c) => const AdminPanelPage()),
+                );
+              },
+            ),
+          ],
           const Spacer(),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 12),
@@ -2385,18 +2471,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
-                              currentUserNik = '';
-                              currentUserName = '';
-                              currentUserRole = '';
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (c) => const LoginPage(),
-                                ),
-                                (route) => false,
-                              );
-                            },
+                            onPressed: () => _logout(context),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFFF6B6B),
                               padding: const EdgeInsets.symmetric(vertical: 13),

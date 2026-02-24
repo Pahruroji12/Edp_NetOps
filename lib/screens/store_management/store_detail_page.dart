@@ -9,6 +9,7 @@ import 'wdcp_control_page.dart';
 import '../auth/login_page.dart';
 import '../../utils/custom_snackbar.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/activity_logger.dart';
 
 class StoreDetailPage extends StatefulWidget {
   final StoreModel store;
@@ -38,7 +39,8 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
   }
 
   bool get _isAdminOrAbove =>
-      currentUserRole == 'administrator' || currentUserRole == 'admin';
+      currentUserRole.toLowerCase() == 'administrator' ||
+      currentUserRole.toLowerCase() == 'admin';
 
   @override
   void initState() {
@@ -128,7 +130,8 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
 
   Future<void> _launchVnc(String ip) async {
     final String vncPath = r'D:\Edp NetOps\vncviewer.exe';
-    const vncPassword = '123';
+
+    // Cek apakah file vncviewer.exe ada di komputer
     if (!File(vncPath).existsSync()) {
       if (mounted) {
         CustomSnackBar.show(
@@ -139,12 +142,30 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
       }
       return;
     }
+
     try {
+      // 1. Ambil data password dari Supabase terlebih dahulu
+      final response = await Supabase.instance.client
+          .from('app_settings')
+          .select();
+
+      // Ubah list hasil query menjadi Map agar mudah dipanggil
+      final data = {for (var item in response) item['key']: item['value']};
+
+      // 2. Ambil nilai password VNC
+      // Jika di database kosong/gagal ditarik, akan menggunakan '123' sebagai cadangan
+      final String vncPassword = data['vnc_pass'] ?? 'konvers1';
+
+      // 3. Jalankan aplikasi VNC Viewer dengan password dari Supabase
       await Process.start(vncPath, [
         ip,
         '/password',
         vncPassword,
       ], mode: ProcessStartMode.detached);
+
+      if (mounted) {
+        CustomSnackBar.show(context, "Membuka VNC ke $ip...", Colors.blue);
+      }
     } catch (e) {
       if (mounted) CustomSnackBar.show(context, "Error: $e", Colors.red);
     }
@@ -174,21 +195,6 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
       }
     }
   }
-
-  // Future<void> _launchCctv(String ip) async {
-  //   const String cctvPort = "45200";
-  //   final String url = "http://$ip:$cctvPort";
-  //   try {
-  //     await Process.run('cmd', ['/c', 'start', '', url]);
-  //     if (mounted) {
-  //       CustomSnackBar.show(context, "Membuka browser ke $url...", Colors.blue);
-  //     }
-  //   } catch (e) {
-  //     if (mounted) {
-  //       CustomSnackBar.show(context, "Gagal membuka browser: $e", Colors.red);
-  //     }
-  //   }
-  // }
 
   void _launchPingCmd(String ip) async {
     try {
@@ -312,7 +318,7 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                 color: context.cardColor,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: context.borderColor),
-                boxShadow: [
+                boxShadow: const [
                   BoxShadow(
                     color: Colors.black45,
                     blurRadius: 30,
@@ -410,10 +416,19 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
     if (confirm == true) {
       setState(() => _isLoading = true);
       try {
+        // 1. Hapus data dari database Supabase
         await Supabase.instance.client
             .from('stores')
             .delete()
             .eq('id', _currentStore.id);
+
+        //
+        await ActivityLogger.logAction(
+          actionType: "HAPUS_TOKO",
+          description:
+              "Menghapus data toko: ${_currentStore.storeCode} - ${_currentStore.storeName}",
+        );
+
         if (mounted) {
           CustomSnackBar.show(context, "Toko berhasil dihapus", Colors.green);
           Navigator.pop(context, true);

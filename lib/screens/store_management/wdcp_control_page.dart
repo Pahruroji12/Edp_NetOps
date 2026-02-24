@@ -1,10 +1,128 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/mikrotik_api_service.dart';
 import '../../utils/custom_snackbar.dart';
 import '../../utils/app_colors.dart';
+
+// ══════════════════════════════════════════════════════════════
+// TOP-LEVEL ISOLATE FUNCTIONS
+// Harus top-level (bukan method) agar bisa dijalankan di isolate
+// Setiap fungsi buat koneksi sendiri → kerja → disconnect
+// Main thread TIDAK pernah menyentuh socket langsung
+// ══════════════════════════════════════════════════════════════
+
+/// Koneksi + ambil semua data sekaligus (untuk initial load & refresh)
+Future<Map<String, dynamic>> _isolateConnectAndFetch(
+  Map<String, dynamic> params,
+) async {
+  final svc = MikrotikApiService();
+  try {
+    await svc.connect(
+      params['ip'] as String,
+      params['port'] as int,
+      params['user'] as String,
+      params['pass'] as String,
+    );
+
+    // Ambil semua data — error per-item tidak menghentikan yang lain
+    List<Map<String, String>> devices = [];
+    List<Map<String, String>> accessList = [];
+    bool authStatus = false;
+    Map<String, String> sysInfo = {};
+
+    try {
+      devices = await svc.getRegistrationTable();
+    } catch (_) {}
+    try {
+      accessList = await svc.getAccessList();
+    } catch (_) {}
+    try {
+      authStatus = await svc.getDefaultAuthStatus();
+    } catch (_) {}
+    try {
+      sysInfo = await svc.getSystemResource();
+    } catch (_) {}
+
+    return {
+      'success': true,
+      'devices': devices,
+      'accessList': accessList,
+      'authStatus': authStatus,
+      'sysInfo': sysInfo,
+    };
+  } catch (e) {
+    return {'success': false, 'error': e.toString()};
+  } finally {
+    svc.disconnect();
+  }
+}
+
+/// Tambah MAC address ke access list
+Future<Map<String, dynamic>> _isolateAddMac(Map<String, dynamic> params) async {
+  final svc = MikrotikApiService();
+  try {
+    await svc.connect(
+      params['ip'] as String,
+      params['port'] as int,
+      params['user'] as String,
+      params['pass'] as String,
+    );
+    await svc.addAccessList(
+      params['mac'] as String,
+      params['comment'] as String,
+    );
+    return {'success': true};
+  } catch (e) {
+    return {'success': false, 'error': e.toString()};
+  } finally {
+    svc.disconnect();
+  }
+}
+
+/// Hapus MAC address dari access list
+Future<Map<String, dynamic>> _isolateRemoveMac(
+  Map<String, dynamic> params,
+) async {
+  final svc = MikrotikApiService();
+  try {
+    await svc.connect(
+      params['ip'] as String,
+      params['port'] as int,
+      params['user'] as String,
+      params['pass'] as String,
+    );
+    await svc.removeAccessList(params['id'] as String);
+    return {'success': true};
+  } catch (e) {
+    return {'success': false, 'error': e.toString()};
+  } finally {
+    svc.disconnect();
+  }
+}
+
+/// Toggle default authenticate
+Future<Map<String, dynamic>> _isolateToggleAuth(
+  Map<String, dynamic> params,
+) async {
+  final svc = MikrotikApiService();
+  try {
+    await svc.connect(
+      params['ip'] as String,
+      params['port'] as int,
+      params['user'] as String,
+      params['pass'] as String,
+    );
+    await svc.setDefaultAuth(params['value'] as bool);
+    return {'success': true};
+  } catch (e) {
+    return {'success': false, 'error': e.toString()};
+  } finally {
+    svc.disconnect();
+  }
+}
 
 class WdcpControlPage extends StatefulWidget {
   final String ip;
@@ -24,7 +142,8 @@ class WdcpControlPage extends StatefulWidget {
 
 class _WdcpControlPageState extends State<WdcpControlPage>
     with SingleTickerProviderStateMixin {
-  final MikrotikApiService _mikrotik = MikrotikApiService();
+  // Koneksi dikelola per-isolate — tidak ada persistent socket di main thread
+  // (lihat top-level functions _isolateConnectAndFetch dll di atas)
 
   String _winboxUser = '';
   String _winboxPass = '';
@@ -59,7 +178,6 @@ class _WdcpControlPageState extends State<WdcpControlPage>
 
   @override
   void dispose() {
-    _mikrotik.disconnect();
     _macController.dispose();
     _commentController.dispose();
     _searchController.dispose();
@@ -93,63 +211,86 @@ class _WdcpControlPageState extends State<WdcpControlPage>
   }
 
   Future<void> _connectAndLoad() async {
-    setState(() => _isLoading = true);
-    try {
-      await _mikrotik.connect(widget.ip, _apiPort, _winboxUser, _winboxPass);
-      await _refreshData();
-      if (mounted) {
-        setState(() {
-          _isConnected = true;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        CustomSnackBar.show(context, "Gagal Konek: $e", context.dangerColor);
-      }
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _isConnected = false;
+    });
+
+    // Ekstrak ke local var — closure hanya boleh capture primitif (String/int/bool)
+    // Jika capture 'widget' langsung, Dart ikut-sertakan seluruh objek widget
+    // yang berisi GlobalKey dll → "object is unsendable"
+    final ip = widget.ip;
+    final port = _apiPort;
+    final user = _winboxUser;
+    final pass = _winboxPass;
+
+    final result = await compute(_isolateConnectAndFetch, {
+      'ip': ip,
+      'port': port,
+      'user': user,
+      'pass': pass,
+    });
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      setState(() {
+        _connectedDevices = List<Map<String, String>>.from(
+          result['devices'] ?? [],
+        );
+        _accessList = List<Map<String, String>>.from(
+          result['accessList'] ?? [],
+        );
+        _filteredAccessList = _accessList;
+        _defaultAuthStatus = result['authStatus'] as bool? ?? false;
+        _systemInfo = Map<String, String>.from(result['sysInfo'] ?? {});
+        _isConnected = true;
+        _isLoading = false;
+      });
+    } else {
+      setState(() => _isLoading = false);
+      CustomSnackBar.show(
+        context,
+        "Gagal Konek: ${result['error']}",
+        context.dangerColor,
+      );
     }
   }
 
   Future<void> _refreshData() async {
     if (!mounted) return;
     setState(() => _isRefreshingList = true);
-    try {
-      try {
-        final devices = await _mikrotik.getRegistrationTable();
-        if (mounted) setState(() => _connectedDevices = devices);
-      } catch (e) {
-        debugPrint("Error Devices: $e");
-      }
 
-      try {
-        final accessList = await _mikrotik.getAccessList();
-        if (mounted) {
-          setState(() {
-            _accessList = accessList;
-            _filterAccessList(_searchController.text);
-          });
-        }
-      } catch (e) {
-        debugPrint("Error Access List: $e");
-      }
+    final ip = widget.ip;
+    final port = _apiPort;
+    final user = _winboxUser;
+    final pass = _winboxPass;
 
-      try {
-        final authStatus = await _mikrotik.getDefaultAuthStatus();
-        if (mounted) setState(() => _defaultAuthStatus = authStatus);
-      } catch (e) {
-        debugPrint("Error Auth: $e");
-      }
+    final result = await compute(_isolateConnectAndFetch, {
+      'ip': ip,
+      'port': port,
+      'user': user,
+      'pass': pass,
+    });
 
-      try {
-        final sysInfo = await _mikrotik.getSystemResource();
-        if (mounted) setState(() => _systemInfo = sysInfo);
-      } catch (e) {
-        debugPrint("Error System Info: $e");
-      }
-    } finally {
-      if (mounted) setState(() => _isRefreshingList = false);
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      setState(() {
+        _connectedDevices = List<Map<String, String>>.from(
+          result['devices'] ?? [],
+        );
+        _accessList = List<Map<String, String>>.from(
+          result['accessList'] ?? [],
+        );
+        _filterAccessList(_searchController.text);
+        _defaultAuthStatus = result['authStatus'] as bool? ?? false;
+        _systemInfo = Map<String, String>.from(result['sysInfo'] ?? {});
+      });
     }
+
+    if (mounted) setState(() => _isRefreshingList = false);
   }
 
   void _filterAccessList(String query) {
@@ -191,63 +332,102 @@ class _WdcpControlPageState extends State<WdcpControlPage>
       );
       return;
     }
-    try {
-      await _mikrotik.addAccessList(macInput, commentInput);
-      if (mounted) {
-        CustomSnackBar.show(
-          context,
-          "Sukses menambahkan $macInput",
-          context.successColor,
-        );
-        _macController.clear();
-        _commentController.clear();
-        _refreshData();
-        _tabController.animateTo(1);
-      }
-    } catch (e) {
-      if (mounted) {
-        CustomSnackBar.show(context, "Gagal tambah: $e", context.dangerColor);
-      }
+    final ip = widget.ip;
+    final port = _apiPort;
+    final user = _winboxUser;
+    final pass = _winboxPass;
+
+    final result = await compute(_isolateAddMac, {
+      'ip': ip,
+      'port': port,
+      'user': user,
+      'pass': pass,
+      'mac': macInput,
+      'comment': commentInput,
+    });
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      CustomSnackBar.show(
+        context,
+        "Sukses menambahkan $macInput",
+        context.successColor,
+      );
+      _macController.clear();
+      _commentController.clear();
+      _refreshData();
+      _tabController.animateTo(1);
+    } else {
+      CustomSnackBar.show(
+        context,
+        "Gagal tambah: ${result['error']}",
+        context.dangerColor,
+      );
     }
   }
 
   Future<void> _removeMac(String id, String mac) async {
-    try {
-      await _mikrotik.removeAccessList(id);
-      if (mounted) {
-        CustomSnackBar.show(
-          context,
-          "MAC $mac berhasil dihapus",
-          const Color(0xFFFFB347),
-        );
-        _refreshData();
-      }
-    } catch (e) {
-      if (mounted) {
-        CustomSnackBar.show(context, "Gagal hapus: $e", context.dangerColor);
-      }
+    final ip = widget.ip;
+    final port = _apiPort;
+    final user = _winboxUser;
+    final pass = _winboxPass;
+
+    final result = await compute(_isolateRemoveMac, {
+      'ip': ip,
+      'port': port,
+      'user': user,
+      'pass': pass,
+      'id': id,
+    });
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      CustomSnackBar.show(
+        context,
+        "MAC $mac berhasil dihapus",
+        const Color(0xFFFFB347),
+      );
+      _refreshData();
+    } else {
+      CustomSnackBar.show(
+        context,
+        "Gagal hapus: ${result['error']}",
+        context.dangerColor,
+      );
     }
   }
 
   Future<void> _toggleAuth(bool value) async {
-    try {
-      await _mikrotik.setDefaultAuth(value);
-      await _refreshData();
-      if (mounted) {
-        CustomSnackBar.show(
-          context,
-          "Default Authenticate: ${value ? 'ENABLED' : 'DISABLED'}",
-          value ? context.dangerColor : context.successColor,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        CustomSnackBar.show(
-          context,
-          "Gagal ubah setting: $e",
-          context.dangerColor,
-        );
-      }
+    final ip = widget.ip;
+    final port = _apiPort;
+    final user = _winboxUser;
+    final pass = _winboxPass;
+
+    final result = await compute(_isolateToggleAuth, {
+      'ip': ip,
+      'port': port,
+      'user': user,
+      'pass': pass,
+      'value': value,
+    });
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      CustomSnackBar.show(
+        context,
+        "Default Authenticate: ${value ? 'ENABLED' : 'DISABLED'}",
+        value ? context.dangerColor : context.successColor,
+      );
+      _refreshData();
+    } else {
+      CustomSnackBar.show(
+        context,
+        "Gagal ubah setting: ${result['error']}",
+        context.dangerColor,
+      );
     }
   }
 
@@ -728,13 +908,16 @@ class _WdcpControlPageState extends State<WdcpControlPage>
                 Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Container(
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: context.surfaceColor,
-                          borderRadius: BorderRadius.circular(9),
-                          border: Border.all(color: context.borderColor),
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                      child: Theme(
+                        data: Theme.of(context).copyWith(
+                          textSelectionTheme: TextSelectionThemeData(
+                            cursorColor: context.accentColor,
+                            selectionColor: context.accentColor.withOpacity(
+                              0.3,
+                            ),
+                            selectionHandleColor: context.accentColor,
+                          ),
                         ),
                         child: TextField(
                           controller: _searchController,
@@ -743,36 +926,47 @@ class _WdcpControlPageState extends State<WdcpControlPage>
                             color: context.textPrimary,
                             fontSize: 12,
                           ),
+                          cursorColor: context.accentColor,
                           decoration: InputDecoration(
                             hintText: "Cari MAC Address atau Nama...",
                             hintStyle: TextStyle(
-                              color: context.textSecondary,
+                              color: context.textSecondary.withOpacity(0.5),
                               fontSize: 12,
                             ),
                             prefixIcon: Icon(
                               Icons.search,
-                              color: context.textSecondary,
                               size: 16,
+                              color: context.textSecondary,
+                            ),
+                            contentPadding: EdgeInsets.zero,
+                            filled: true,
+                            fillColor: context.surfaceColor,
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: context.borderColor,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: context.accentColor,
+                                width: 1.5,
+                              ),
                             ),
                             suffixIcon: _searchController.text.isNotEmpty
                                 ? IconButton(
                                     icon: Icon(
-                                      Icons.close_rounded,
+                                      Icons.clear,
                                       size: 14,
                                       color: context.textSecondary,
                                     ),
                                     onPressed: () {
                                       _searchController.clear();
                                       _filterAccessList('');
-                                      FocusScope.of(context).unfocus();
                                     },
                                   )
                                 : null,
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 10,
-                            ),
                           ),
                         ),
                       ),

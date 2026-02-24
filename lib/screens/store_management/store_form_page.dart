@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/store_model.dart';
 import '../../utils/custom_snackbar.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/activity_logger.dart';
 
 class StoreFormPage extends StatefulWidget {
   final StoreModel? store;
@@ -124,6 +125,7 @@ class _StoreFormPageState extends State<StoreFormPage> {
   Future<void> _saveData() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
+
     final Map<String, dynamic> data = {
       'store_code': _codeController.text.trim(),
       'store_name': _nameController.text.trim(),
@@ -143,15 +145,32 @@ class _StoreFormPageState extends State<StoreFormPage> {
       'ip_cctv_1': valueOrNull(_cctv1Controller),
       'ip_cctv_2': valueOrNull(_cctv2Controller),
     };
+
     try {
       if (isEdit) {
+        // 1. Update ke Supabase
         await Supabase.instance.client
             .from('stores')
             .update(data)
             .eq('id', widget.store!.id);
+
+        // 2. Catat log Edit Toko
+        await ActivityLogger.logAction(
+          actionType: "EDIT_TOKO",
+          description: "Mengubah data toko: ${_nameController.text.trim()}",
+        );
       } else {
+        // 1. Insert ke Supabase
         await Supabase.instance.client.from('stores').insert(data);
+
+        // 2. Catat log Tambah Toko
+        await ActivityLogger.logAction(
+          actionType: "TAMBAH_TOKO",
+          description:
+              "Menambahkan data toko baru: ${_nameController.text.trim()}",
+        );
       }
+
       if (mounted) {
         CustomSnackBar.show(
           context,
@@ -162,10 +181,25 @@ class _StoreFormPageState extends State<StoreFormPage> {
         );
         Navigator.pop(context, true);
       }
+    } on PostgrestException catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+
+        // Ambil pesan asli dari sistem
+        String errorMessage = e.message;
+
+        // Jika error codenya 23505 (Data Duplikat/Sudah Ada)
+        if (e.code == '23505') {
+          errorMessage =
+              "Gagal: Kode Toko '${_codeController.text.trim()}' sudah terdaftar!";
+        }
+
+        CustomSnackBar.show(context, errorMessage, const Color(0xFFFF6B6B));
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        CustomSnackBar.show(context, "Error: $e", Colors.red);
+        CustomSnackBar.show(context, "Error: $e", const Color(0xFFFF6B6B));
       }
     }
   }

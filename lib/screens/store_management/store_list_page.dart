@@ -9,6 +9,9 @@ import '../profile/profile_page.dart';
 import '../dashboard/dashboard_page.dart';
 import '../../utils/app_colors.dart';
 import '../settings/settings_page.dart';
+import '../../utils/activity_logger.dart';
+import '../profile/admin_panel_page.dart';
+import '../../utils/export_helper.dart';
 
 class StoreListPage extends StatefulWidget {
   const StoreListPage({super.key});
@@ -35,7 +38,8 @@ class _StoreListPageState extends State<StoreListPage> {
   final List<String> _filterChips = ['Semua', 'FO', 'VSAT', 'GSM', 'XL'];
 
   bool get _isAdminOrAbove =>
-      currentUserRole == 'administrator' || currentUserRole == 'admin';
+      currentUserRole.toLowerCase() == 'administrator' ||
+      currentUserRole.toLowerCase() == 'admin';
 
   @override
   void initState() {
@@ -128,6 +132,43 @@ class _StoreListPageState extends State<StoreListPage> {
     if (l.contains('vsat')) return const Color(0xFFFFB74D);
     if (l.contains('gsm')) return const Color(0xFFFF7043);
     return const Color(0xFF7A9CC4);
+  }
+
+  // ========================================== //
+  // LOGOUT FUNCTION //
+  // ========================================== //
+  Future<void> _logout(BuildContext context) async {
+    try {
+      // 1. Matikan lampu status jadi Offline
+      await ActivityLogger.updateOnlineStatus(false);
+
+      // 2. Catat log bahwa user ini keluar dari aplikasi
+      await ActivityLogger.logAction(
+        actionType: "LOGOUT",
+        description: "Pengguna keluar dari sistem",
+      );
+
+      // 3. Hapus token sesi dengan aman menggunakan Supabase Auth
+      await Supabase.instance.client.auth.signOut();
+
+      // 4. Bersihkan memori variabel global
+      currentUserNik = '';
+      currentUserName = '';
+      currentUserRole = '';
+
+      // 5. Arahkan kembali ke halaman Login secara total (menghapus riwayat 'back')
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (c) => const LoginPage()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        CustomSnackBar.show(context, "Gagal logout: $e", Colors.red);
+      }
+    }
   }
 
   @override
@@ -300,6 +341,8 @@ class _StoreListPageState extends State<StoreListPage> {
                     ),
                     const SizedBox(width: 8),
                   ],
+                  _buildExportButton(),
+                  const SizedBox(width: 8),
                   _buildRefreshButton(),
                 ],
               );
@@ -335,6 +378,56 @@ class _StoreListPageState extends State<StoreListPage> {
             border: Border.all(color: context.borderColor),
           ),
           child: Icon(icon, color: context.textPrimary, size: 18),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExportButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () async {
+          try {
+            // Tangkap pesan kembaliannya
+            final message = await ExportHelper.exportToCSV(_filteredStores);
+
+            if (mounted) {
+              // Tampilkan pesan sukses warna hijau
+              CustomSnackBar.show(context, message, Colors.green);
+            }
+          } catch (e) {
+            if (mounted) {
+              CustomSnackBar.show(context, e.toString(), context.dangerColor);
+            }
+          }
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: context.successColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: context.successColor.withOpacity(0.25)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.download_rounded,
+                color: context.successColor,
+                size: 14,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                "Export",
+                style: TextStyle(
+                  color: context.successColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -420,36 +513,48 @@ class _StoreListPageState extends State<StoreListPage> {
           ),
         ],
       ),
-      child: TextField(
-        controller: _searchController,
-        onChanged: (_) => _applyFilters(),
-        style: TextStyle(color: context.textPrimary, fontSize: 13),
-        decoration: InputDecoration(
-          hintText: "Cari kode, nama, atau IP gateway...",
-          hintStyle: TextStyle(color: context.textSecondary, fontSize: 12),
-          prefixIcon: Icon(
-            Icons.search_rounded,
-            color: context.textSecondary,
-            size: 18,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          textSelectionTheme: TextSelectionThemeData(
+            cursorColor: context.accentColor, // Warna garis kursor
+            selectionColor: context.accentColor.withOpacity(
+              0.3,
+            ), // Warna blok teks
+            selectionHandleColor:
+                context.accentColor, // Warna pentolan kursor di HP
           ),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: Icon(
-                    Icons.close_rounded,
-                    color: context.textSecondary,
-                    size: 16,
-                  ),
-                  onPressed: () {
-                    _searchController.clear();
-                    _applyFilters();
-                    FocusScope.of(context).unfocus();
-                  },
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 13,
+        ),
+        child: TextField(
+          controller: _searchController,
+          onChanged: (_) => _applyFilters(),
+          style: TextStyle(color: context.textPrimary, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: "Cari kode, nama, atau IP gateway...",
+            hintStyle: TextStyle(color: context.textSecondary, fontSize: 12),
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              color: context.textSecondary,
+              size: 18,
+            ),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: context.textSecondary,
+                      size: 16,
+                    ),
+                    onPressed: () {
+                      _searchController.clear();
+                      _applyFilters();
+                      FocusScope.of(context).unfocus();
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 13,
+            ),
           ),
         ),
       ),
@@ -1177,7 +1282,20 @@ class _StoreListPageState extends State<StoreListPage> {
               onTap: () => Navigator.pop(context),
             ),
           ),
+
+          _buildDrawerTile(
+            icon: Icons.person_outline,
+            label: 'Profil Saya',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (c) => const ProfilePage()),
+              );
+            },
+          ),
           if (currentUserRole.toLowerCase() == 'administrator') ...[
+            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
             _buildDrawerTile(
               icon: Icons.settings_outlined,
               label: 'Setting',
@@ -1190,17 +1308,21 @@ class _StoreListPageState extends State<StoreListPage> {
               },
             ),
           ],
-          _buildDrawerTile(
-            icon: Icons.person_outline,
-            label: 'Profil Saya',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => const ProfilePage()),
-              );
-            },
-          ),
+          if (currentUserRole.toLowerCase() == 'administrator') ...[
+            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
+            _buildDrawerTile(
+              icon: Icons.admin_panel_settings_outlined,
+              label: 'Control Center',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (c) => const AdminPanelPage()),
+                );
+              },
+            ),
+          ],
+
           const Spacer(),
           Container(
             height: 1,
@@ -1329,18 +1451,7 @@ class _StoreListPageState extends State<StoreListPage> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: () {
-                              currentUserNik = '';
-                              currentUserName = '';
-                              currentUserRole = '';
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (c) => const LoginPage(),
-                                ),
-                                (r) => false,
-                              );
-                            },
+                            onPressed: () => _logout(context),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFFF6B6B),
                               padding: const EdgeInsets.symmetric(vertical: 13),

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../dashboard/dashboard_page.dart';
 import '../../utils/custom_snackbar.dart';
-import '../../utils/encryption_helper.dart';
+// import '../../utils/encryption_helper.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/activity_logger.dart';
 
 // ==========================================
 // VARIABLE GLOBAL
@@ -122,25 +123,42 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Future<void> _signIn() async {
     final nik = _nikController.text.trim();
     final password = _passwordController.text.trim();
+
     if (nik.isEmpty || password.isEmpty) {
       CustomSnackBar.show(context, "NIK dan Password wajib diisi!", Colors.red);
       return;
     }
+
     setState(() => _isLoading = true);
+
     try {
-      final response = await Supabase.instance.client
-          .from('profiles')
-          .select()
-          .eq('nik', nik)
-          .eq('password', EncryptionHelper.hashPassword(password))
-          .maybeSingle();
-      if (response == null) {
-        if (mounted)
-          CustomSnackBar.show(context, "NIK atau Password salah!", Colors.red);
-      } else {
-        currentUserNik = response['nik'] ?? '';
-        currentUserName = response['nama'] ?? 'Karyawan';
-        currentUserRole = response['role'] ?? 'lapangan';
+      // Bersihkan NIK dari spasi saat mencoba login
+      final String cleanNik = nik.replaceAll(' ', '');
+      final String fakeEmail = '$cleanNik@edp.com';
+
+      final AuthResponse res = await Supabase.instance.client.auth
+          .signInWithPassword(email: fakeEmail, password: password);
+
+      // 2. Jika sukses login, ambil data detail dari tabel profiles
+      if (res.user != null) {
+        final profile = await Supabase.instance.client
+            .from('profiles')
+            .select()
+            .eq('id', res.user!.id)
+            .single();
+
+        // 3. Isi variabel global seperti kodingan Mas sebelumnya
+        currentUserNik = profile['nik'] ?? '';
+        currentUserName = profile['nama'] ?? 'Karyawan';
+        currentUserRole = profile['role'] ?? 'user';
+
+        // 4. Nyalakan status Online dan catat Log Aktivitas
+        await ActivityLogger.updateOnlineStatus(true);
+        await ActivityLogger.logAction(
+          actionType: "LOGIN",
+          description: "Pengguna berhasil masuk ke sistem",
+        );
+
         if (mounted) {
           CustomSnackBar.show(
             context,
@@ -153,13 +171,20 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           );
         }
       }
-    } catch (e) {
-      if (mounted)
+    } on AuthException catch (_) {
+      // Menangkap error khusus dari Supabase Auth (misal: password salah)
+      if (mounted) {
         CustomSnackBar.show(
           context,
-          "Terjadi kesalahan jaringan: $e",
+          "Login Gagal: NIK atau Password salah!",
           Colors.red,
         );
+      }
+    } catch (e) {
+      // Menangkap error jaringan atau lainnya
+      if (mounted) {
+        CustomSnackBar.show(context, "Terjadi kesalahan: $e", Colors.red);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
