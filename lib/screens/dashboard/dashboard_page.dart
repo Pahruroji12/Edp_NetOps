@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -12,6 +13,7 @@ import '../settings/settings_page.dart';
 import '../../utils/custom_snackbar.dart';
 import '../../utils/activity_logger.dart';
 import '../profile/admin_panel_page.dart';
+import '../store_management/ping_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -1453,6 +1455,19 @@ class _DashboardPageState extends State<DashboardPage> {
               );
             },
           ),
+
+          if (Platform.isWindows)
+            _buildDrawerTile(
+              icon: Icons.network_check,
+              label: 'Ping Scanner',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const PingPage()),
+                );
+              },
+            ),
 
           _buildDrawerTile(
             icon: Icons.person_outline,

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/auth/login_page.dart';
 import 'utils/app_colors.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'utils/globals.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -48,6 +49,7 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           title: 'EDP NetOps',
           debugShowCheckedModeBanner: false,
+          scaffoldMessengerKey: globalMessengerKey,
           // 4. Daftarkan tema yang sudah digabung
           theme: lightThemeWithCompact, // Mode Terang
           darkTheme: darkThemeWithCompact, // Mode Gelap

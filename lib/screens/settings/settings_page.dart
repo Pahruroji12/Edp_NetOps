@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -9,6 +10,7 @@ import '../../utils/app_colors.dart';
 import '../profile/profile_page.dart';
 import '../../utils/activity_logger.dart';
 import '../profile/admin_panel_page.dart';
+import '../store_management/ping_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -1622,6 +1624,20 @@ class _SettingsPageState extends State<SettingsPage> {
               );
             },
           ),
+
+          if (Platform.isWindows)
+            _buildDrawerTile(
+              icon: Icons.network_check,
+              label: 'Ping Scanner',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const PingPage()),
+                );
+              },
+            ),
+
           _buildDrawerTile(
             icon: Icons.person_outline,
             label: 'Profil Saya',

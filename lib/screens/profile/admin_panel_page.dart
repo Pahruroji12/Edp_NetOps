@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/activity_logger.dart';
@@ -8,6 +9,7 @@ import '../dashboard/dashboard_page.dart';
 import '../store_management/store_list_page.dart';
 import '../settings/settings_page.dart';
 import 'profile_page.dart';
+import '../store_management/ping_page.dart';
 
 class AdminPanelPage extends StatefulWidget {
   const AdminPanelPage({super.key});
@@ -1473,6 +1475,20 @@ class _AdminPanelPageState extends State<AdminPanelPage>
               );
             },
           ),
+
+          if (Platform.isWindows)
+            _buildDrawerTile(
+              icon: Icons.network_check,
+              label: 'Ping Scanner',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const PingPage()),
+                );
+              },
+            ),
+
           _buildDrawerTile(
             icon: Icons.person_outline,
             label: 'Profil Saya',

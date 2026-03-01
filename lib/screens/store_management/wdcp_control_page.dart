@@ -194,8 +194,8 @@ class _WdcpControlPageState extends State<WdcpControlPage>
       setState(() {
         _winboxUser = data['wdcp_user'] ?? 'admin';
         _winboxPass = data['wdcp_pass'] ?? '';
-        _apiPort = int.tryParse(data['api_port'] ?? '8728') ?? 8728;
-        _winboxPort = data['winbox_port'] ?? '8291';
+        _apiPort = int.tryParse(data['api_port'] ?? '8278') ?? 8278;
+        _winboxPort = data['winbox_port'] ?? '9157';
       });
       await _connectAndLoad();
     } catch (e) {

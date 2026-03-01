@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // import '../../utils/encryption_helper.dart';
@@ -9,6 +10,7 @@ import '../../utils/app_colors.dart';
 import '../settings/settings_page.dart';
 import '../../utils/activity_logger.dart';
 import '../profile/admin_panel_page.dart';
+import '../store_management/ping_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -163,7 +165,8 @@ class _ProfilePageState extends State<ProfilePage> {
   // ==========================================
   // FUNGSI: HAPUS USER (HANYA ADMINISTRATOR)
   // ==========================================
-  Future<void> _deleteUser(String nik, String nama) async {
+  // 👇 Tambahkan 'String id' di sini 👇
+  Future<void> _deleteUser(String id, String nik, String nama) async {
     showDialog(
       context: context,
       barrierColor: Colors.black54,
@@ -251,15 +254,26 @@ class _ProfilePageState extends State<ProfilePage> {
                               Navigator.pop(dialogContext); // Tutup dialog dulu
                               setState(() => _isLoadingUsers = true);
                               try {
-                                await Supabase.instance.client
-                                    .from('profiles')
-                                    .delete()
-                                    .eq('nik', nik);
+                                // 👇 KODINGAN BARU UNTUK HAPUS PERMANEN 👇
+                                await Supabase.instance.client.rpc(
+                                  'hapus_user_permanen',
+                                  params: {
+                                    'target_uid': id,
+                                  }, // Menggunakan ID UUID
+                                );
+
+                                // Catat ke CCTV Log Aktivitas
+                                await ActivityLogger.logAction(
+                                  actionType: "HAPUS_USER",
+                                  description:
+                                      "Menghapus pengguna: $nama (NIK: $nik)",
+                                );
+                                // 👆 SAMPAI SINI 👆
 
                                 if (mounted) {
                                   CustomSnackBar.show(
                                     context,
-                                    "Pengguna berhasil dihapus!",
+                                    "Pengguna berhasil dihapus permanen!",
                                     Colors.green,
                                   );
                                   _fetchUsers(); // Refresh data setelah hapus
@@ -902,7 +916,11 @@ class _ProfilePageState extends State<ProfilePage> {
                                   if (isAdministrator && !isMe) ...[
                                     const SizedBox(height: 6),
                                     InkWell(
-                                      onTap: () => _deleteUser(nik, nama),
+                                      onTap: () => _deleteUser(
+                                        user['id'].toString(),
+                                        user['nik'].toString(),
+                                        user['nama'].toString(),
+                                      ),
                                       borderRadius: BorderRadius.circular(8),
                                       child: Container(
                                         padding: const EdgeInsets.all(5),
@@ -1598,7 +1616,7 @@ class _ProfilePageState extends State<ProfilePage> {
       (
         Icons.tag_rounded,
         'Versi',
-        'v2.1 (Enterprise Build)',
+        'v2.2 (Enterprise Build)',
         context.accentColor,
       ),
       (Icons.build_circle_outlined, 'Build', '2026.02', context.textSecondary),
@@ -1741,7 +1759,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   child: Text(
-                    'v2.1',
+                    'v2.2',
                     style: TextStyle(
                       color: context.accentColor,
                       fontSize: 12,
@@ -2289,6 +2307,19 @@ class _ProfilePageState extends State<ProfilePage> {
               );
             },
           ),
+
+          if (Platform.isWindows)
+            _buildDrawerTile(
+              icon: Icons.network_check,
+              label: 'Ping Scanner',
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const PingPage()),
+                );
+              },
+            ),
 
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

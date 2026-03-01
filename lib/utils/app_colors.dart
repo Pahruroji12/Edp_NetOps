@@ -61,9 +61,20 @@ extension ThemeColors on BuildContext {
   Color get textPrimary => Theme.of(this).textTheme.bodyLarge!.color!;
   Color get textSecondary => Theme.of(this).textTheme.bodyMedium!.color!;
 
-  Color get successColor => const Color(0xFF00E676);
-  Color get dangerColor => const Color(0xFFFF6B6B);
-  Color get warningColor => const Color(0xFFFFA726);
+  Color get successColor => AppStatusColors.success;
+  Color get dangerColor => AppStatusColors.danger;
+  Color get warningColor => AppStatusColors.warning;
+}
+
+// ==========================================
+// STATIC COLORS — bisa dipakai tanpa context
+// (untuk service layer, isolate, dll)
+// ==========================================
+class AppStatusColors {
+  static const Color success = Color(0xFF00E676); // Hijau
+  static const Color danger = Color(0xFFFF6B6B); // Merah
+  static const Color warning = Color(0xFFFFA726); // Oranye
+  static const Color accent = Color(0xFF00D4FF); // Biru/Cyan (dark)
 }
 
 // import 'package:flutter/material.dart';
