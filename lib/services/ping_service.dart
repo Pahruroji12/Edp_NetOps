@@ -97,7 +97,7 @@ class PingService extends ChangeNotifier {
     pingRbWdcp = false;
     pingCctv1 = false;
     pingCctv2 = false;
-    speedMode = 5;
+    speedMode = 1;
     notifyListeners();
 
     await startPing(isAutoRun: true);

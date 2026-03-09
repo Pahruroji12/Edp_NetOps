@@ -1,128 +1,10 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/mikrotik_api_service.dart';
 import '../../utils/custom_snackbar.dart';
 import '../../utils/app_colors.dart';
-
-// ══════════════════════════════════════════════════════════════
-// TOP-LEVEL ISOLATE FUNCTIONS
-// Harus top-level (bukan method) agar bisa dijalankan di isolate
-// Setiap fungsi buat koneksi sendiri → kerja → disconnect
-// Main thread TIDAK pernah menyentuh socket langsung
-// ══════════════════════════════════════════════════════════════
-
-/// Koneksi + ambil semua data sekaligus (untuk initial load & refresh)
-Future<Map<String, dynamic>> _isolateConnectAndFetch(
-  Map<String, dynamic> params,
-) async {
-  final svc = MikrotikApiService();
-  try {
-    await svc.connect(
-      params['ip'] as String,
-      params['port'] as int,
-      params['user'] as String,
-      params['pass'] as String,
-    );
-
-    // Ambil semua data — error per-item tidak menghentikan yang lain
-    List<Map<String, String>> devices = [];
-    List<Map<String, String>> accessList = [];
-    bool authStatus = false;
-    Map<String, String> sysInfo = {};
-
-    try {
-      devices = await svc.getRegistrationTable();
-    } catch (_) {}
-    try {
-      accessList = await svc.getAccessList();
-    } catch (_) {}
-    try {
-      authStatus = await svc.getDefaultAuthStatus();
-    } catch (_) {}
-    try {
-      sysInfo = await svc.getSystemResource();
-    } catch (_) {}
-
-    return {
-      'success': true,
-      'devices': devices,
-      'accessList': accessList,
-      'authStatus': authStatus,
-      'sysInfo': sysInfo,
-    };
-  } catch (e) {
-    return {'success': false, 'error': e.toString()};
-  } finally {
-    svc.disconnect();
-  }
-}
-
-/// Tambah MAC address ke access list
-Future<Map<String, dynamic>> _isolateAddMac(Map<String, dynamic> params) async {
-  final svc = MikrotikApiService();
-  try {
-    await svc.connect(
-      params['ip'] as String,
-      params['port'] as int,
-      params['user'] as String,
-      params['pass'] as String,
-    );
-    await svc.addAccessList(
-      params['mac'] as String,
-      params['comment'] as String,
-    );
-    return {'success': true};
-  } catch (e) {
-    return {'success': false, 'error': e.toString()};
-  } finally {
-    svc.disconnect();
-  }
-}
-
-/// Hapus MAC address dari access list
-Future<Map<String, dynamic>> _isolateRemoveMac(
-  Map<String, dynamic> params,
-) async {
-  final svc = MikrotikApiService();
-  try {
-    await svc.connect(
-      params['ip'] as String,
-      params['port'] as int,
-      params['user'] as String,
-      params['pass'] as String,
-    );
-    await svc.removeAccessList(params['id'] as String);
-    return {'success': true};
-  } catch (e) {
-    return {'success': false, 'error': e.toString()};
-  } finally {
-    svc.disconnect();
-  }
-}
-
-/// Toggle default authenticate
-Future<Map<String, dynamic>> _isolateToggleAuth(
-  Map<String, dynamic> params,
-) async {
-  final svc = MikrotikApiService();
-  try {
-    await svc.connect(
-      params['ip'] as String,
-      params['port'] as int,
-      params['user'] as String,
-      params['pass'] as String,
-    );
-    await svc.setDefaultAuth(params['value'] as bool);
-    return {'success': true};
-  } catch (e) {
-    return {'success': false, 'error': e.toString()};
-  } finally {
-    svc.disconnect();
-  }
-}
 
 class WdcpControlPage extends StatefulWidget {
   final String ip;
@@ -143,7 +25,6 @@ class WdcpControlPage extends StatefulWidget {
 class _WdcpControlPageState extends State<WdcpControlPage>
     with SingleTickerProviderStateMixin {
   // Koneksi dikelola per-isolate — tidak ada persistent socket di main thread
-  // (lihat top-level functions _isolateConnectAndFetch dll di atas)
 
   String _winboxUser = '';
   String _winboxPass = '';
@@ -194,8 +75,8 @@ class _WdcpControlPageState extends State<WdcpControlPage>
       setState(() {
         _winboxUser = data['wdcp_user'] ?? 'admin';
         _winboxPass = data['wdcp_pass'] ?? '';
-        _apiPort = int.tryParse(data['api_port'] ?? '8278') ?? 8278;
-        _winboxPort = data['winbox_port'] ?? '9157';
+        _apiPort = int.tryParse(data['api_port'] ?? '8728') ?? 8728;
+        _winboxPort = data['winbox_port'] ?? '8291';
       });
       await _connectAndLoad();
     } catch (e) {
@@ -217,20 +98,7 @@ class _WdcpControlPageState extends State<WdcpControlPage>
       _isConnected = false;
     });
 
-    // Ekstrak ke local var — closure hanya boleh capture primitif (String/int/bool)
-    // Jika capture 'widget' langsung, Dart ikut-sertakan seluruh objek widget
-    // yang berisi GlobalKey dll → "object is unsendable"
-    final ip = widget.ip;
-    final port = _apiPort;
-    final user = _winboxUser;
-    final pass = _winboxPass;
-
-    final result = await compute(_isolateConnectAndFetch, {
-      'ip': ip,
-      'port': port,
-      'user': user,
-      'pass': pass,
-    });
+    final result = await _connectAndFetch();
 
     if (!mounted) return;
 
@@ -262,17 +130,7 @@ class _WdcpControlPageState extends State<WdcpControlPage>
     if (!mounted) return;
     setState(() => _isRefreshingList = true);
 
-    final ip = widget.ip;
-    final port = _apiPort;
-    final user = _winboxUser;
-    final pass = _winboxPass;
-
-    final result = await compute(_isolateConnectAndFetch, {
-      'ip': ip,
-      'port': port,
-      'user': user,
-      'pass': pass,
-    });
+    final result = await _connectAndFetch();
 
     if (!mounted) return;
 
@@ -332,19 +190,7 @@ class _WdcpControlPageState extends State<WdcpControlPage>
       );
       return;
     }
-    final ip = widget.ip;
-    final port = _apiPort;
-    final user = _winboxUser;
-    final pass = _winboxPass;
-
-    final result = await compute(_isolateAddMac, {
-      'ip': ip,
-      'port': port,
-      'user': user,
-      'pass': pass,
-      'mac': macInput,
-      'comment': commentInput,
-    });
+    final result = await _doAddMac(macInput, commentInput);
 
     if (!mounted) return;
 
@@ -368,18 +214,7 @@ class _WdcpControlPageState extends State<WdcpControlPage>
   }
 
   Future<void> _removeMac(String id, String mac) async {
-    final ip = widget.ip;
-    final port = _apiPort;
-    final user = _winboxUser;
-    final pass = _winboxPass;
-
-    final result = await compute(_isolateRemoveMac, {
-      'ip': ip,
-      'port': port,
-      'user': user,
-      'pass': pass,
-      'id': id,
-    });
+    final result = await _doRemoveMac(id);
 
     if (!mounted) return;
 
@@ -400,18 +235,7 @@ class _WdcpControlPageState extends State<WdcpControlPage>
   }
 
   Future<void> _toggleAuth(bool value) async {
-    final ip = widget.ip;
-    final port = _apiPort;
-    final user = _winboxUser;
-    final pass = _winboxPass;
-
-    final result = await compute(_isolateToggleAuth, {
-      'ip': ip,
-      'port': port,
-      'user': user,
-      'pass': pass,
-      'value': value,
-    });
+    final result = await _doToggleAuth(value);
 
     if (!mounted) return;
 
@@ -428,6 +252,88 @@ class _WdcpControlPageState extends State<WdcpControlPage>
         "Gagal ubah setting: ${result['error']}",
         context.dangerColor,
       );
+    }
+  }
+
+  // ── ROUTER OPERATIONS (async/await langsung — tanpa isolate overhead) ───────
+
+  /// Koneksi + ambil semua data sekaligus
+  Future<Map<String, dynamic>> _connectAndFetch() async {
+    final svc = MikrotikApiService();
+    try {
+      await svc.connect(widget.ip, _apiPort, _winboxUser, _winboxPass);
+
+      List<Map<String, String>> devices = [];
+      List<Map<String, String>> accessList = [];
+      bool authStatus = false;
+      Map<String, String> sysInfo = {};
+
+      try {
+        devices = await svc.getRegistrationTable();
+      } catch (_) {}
+      try {
+        accessList = await svc.getAccessList();
+      } catch (_) {}
+      try {
+        authStatus = await svc.getDefaultAuthStatus();
+      } catch (_) {}
+      try {
+        sysInfo = await svc.getSystemResource();
+      } catch (_) {}
+
+      return {
+        'success': true,
+        'devices': devices,
+        'accessList': accessList,
+        'authStatus': authStatus,
+        'sysInfo': sysInfo,
+      };
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    } finally {
+      svc.disconnect();
+    }
+  }
+
+  /// Tambah MAC ke access list
+  Future<Map<String, dynamic>> _doAddMac(String mac, String comment) async {
+    final svc = MikrotikApiService();
+    try {
+      await svc.connect(widget.ip, _apiPort, _winboxUser, _winboxPass);
+      await svc.addAccessList(mac, comment);
+      return {'success': true};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    } finally {
+      svc.disconnect();
+    }
+  }
+
+  /// Hapus MAC dari access list
+  Future<Map<String, dynamic>> _doRemoveMac(String id) async {
+    final svc = MikrotikApiService();
+    try {
+      await svc.connect(widget.ip, _apiPort, _winboxUser, _winboxPass);
+      await svc.removeAccessList(id);
+      return {'success': true};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    } finally {
+      svc.disconnect();
+    }
+  }
+
+  /// Toggle default authenticate
+  Future<Map<String, dynamic>> _doToggleAuth(bool value) async {
+    final svc = MikrotikApiService();
+    try {
+      await svc.connect(widget.ip, _apiPort, _winboxUser, _winboxPass);
+      await svc.setDefaultAuth(value);
+      return {'success': true};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    } finally {
+      svc.disconnect();
     }
   }
 

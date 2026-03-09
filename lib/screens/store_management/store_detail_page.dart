@@ -10,6 +10,8 @@ import '../auth/login_page.dart';
 import '../../utils/custom_snackbar.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/activity_logger.dart';
+import '../../services/ftp_service.dart';
+import 'ftp_page.dart';
 
 class StoreDetailPage extends StatefulWidget {
   final StoreModel store;
@@ -874,9 +876,9 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                 (_isAdminOrAbove &&
                     (_currentStore.ipRbWdcp?.isNotEmpty == true))
                 ? _buildMiniButton(
-                    label: "Manage",
+                    label: "OPEN",
                     icon: Icons.settings_remote_outlined,
-                    color: const Color(0xFF6C63FF),
+                    color: context.accentColor,
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -945,11 +947,80 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
             Icons.devices_outlined,
             const Color(0xFFFFB347),
           ),
-          _buildIpRow(
-            context,
-            "IP STB",
-            _currentStore.ipStb,
-            icon: Icons.tv_outlined,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildIpRow(
+                context,
+                "IP STB",
+                _currentStore.ipStb,
+                icon: Icons.tv_outlined,
+                customButton:
+                    _currentStore.ipStb != null &&
+                        _currentStore.ipStb!.isNotEmpty
+                    ? _buildMiniButton(
+                        label: "FTP",
+                        icon: Icons.upload_file,
+                        color: context.warningColor,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => FtpPage(
+                                targetIp: _currentStore.ipStb!,
+                                storeCode: _currentStore.storeCode,
+                                storeName: _currentStore.storeName,
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : null,
+              ),
+              ListenableBuilder(
+                listenable: FtpService(),
+                builder: (context, child) {
+                  final ftpService = FtpService();
+                  final isActive =
+                      (ftpService.isUploading || ftpService.isDownloading) &&
+                      ftpService.targetIp == _currentStore.ipStb;
+
+                  if (isActive) {
+                    return Padding(
+                      padding: const EdgeInsets.only(
+                        left: 45.0,
+                        right: 16.0,
+                        bottom: 12.0,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          LinearProgressIndicator(
+                            value: ftpService.uploadProgress > 0
+                                ? ftpService.uploadProgress
+                                : null,
+                            backgroundColor: context.surfaceColor,
+                            color: context.warningColor,
+                            minHeight: 2.5,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            ftpService.statusMessage,
+                            style: TextStyle(
+                              color: context.warningColor,
+                              fontSize: 10,
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ],
           ),
           _buildDivider(),
           _buildIpRow(
@@ -1101,7 +1172,7 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
       if (!_isMobile) ...[
         if (hasValue && isGateway && _isAdminOrAbove)
           _buildMiniButton(
-            label: "Winbox",
+            label: "WINBOX",
             color: context.accentColor,
             onTap: () => _launchWinbox(value),
           ),

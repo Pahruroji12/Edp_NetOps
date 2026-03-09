@@ -1616,7 +1616,7 @@ class _ProfilePageState extends State<ProfilePage> {
       (
         Icons.tag_rounded,
         'Versi',
-        'v2.2 (Enterprise Build)',
+        'v2.3 (Enterprise Build)',
         context.accentColor,
       ),
       (Icons.build_circle_outlined, 'Build', '2026.02', context.textSecondary),
@@ -1759,7 +1759,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   child: Text(
-                    'v2.2',
+                    'v2.3',
                     style: TextStyle(
                       color: context.accentColor,
                       fontSize: 12,
