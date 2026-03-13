@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:ftpconnect/ftpconnect.dart';
+import '../../services/ftp_client.dart';
 import '../../services/ftp_service.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/custom_snackbar.dart';
@@ -35,11 +35,12 @@ class _FtpPageState extends State<FtpPage> {
   List<String> _availableDrives = [];
 
   // ── Panel remote STB ──────────────────────────────────────────────────────
-  String _remotePath = "/sdcard/";
-  List<FTPEntry> _remoteFiles = [];
-  FTPEntry? _selectedRemoteFile;
+  String _remotePath = "/";
+  List<FtpEntry> _remoteFiles = [];
+  FtpEntry? _selectedRemoteFile;
   bool _isLoadingRemote = false;
   String? _remoteError;
+  String _remoteErrorDetail = '';
 
   // ── Operasi aktif ─────────────────────────────────────────────────────────
   bool _isDeletingLocal = false;
@@ -144,29 +145,26 @@ class _FtpPageState extends State<FtpPage> {
       _remoteError = null;
     });
 
-    final ftp = FTPConnect(
-      widget.targetIp,
+    final ftp = FtpClient(
+      host: widget.targetIp,
       user: 'posterm',
       pass: 'dAZAD9yq',
-      port: 21,
     );
-    bool connected = false;
     try {
-      connected = await ftp.connect();
-      if (!connected) throw Exception("login_rejected");
+      await ftp.connect();
 
-      try {
-        await ftp.changeDirectory(_remotePath);
-      } catch (_) {
-        // Folder tidak bisa diakses — kemungkinan flashdisk rusak/tidak terpasang
-        throw Exception("dir_error:$_remotePath");
+      if (_remotePath != '/') {
+        try {
+          await ftp.changeDirectory(_remotePath);
+        } catch (_) {
+          throw Exception("dir_error:$_remotePath");
+        }
       }
 
-      final entries = await ftp.listDirectoryContent();
+      final entries = await ftp.listDirectory();
       entries.sort((a, b) {
-        if (a.type == FTPEntryType.dir && b.type == FTPEntryType.file)
-          return -1;
-        if (a.type == FTPEntryType.file && b.type == FTPEntryType.dir) return 1;
+        if (a.isDirectory && !b.isDirectory) return -1;
+        if (!a.isDirectory && b.isDirectory) return 1;
         return a.name.compareTo(b.name);
       });
 
@@ -182,21 +180,20 @@ class _FtpPageState extends State<FtpPage> {
       String errorCode;
       if (msg.contains("dir_error")) {
         errorCode = "dir_error";
-      } else if (msg.contains("login_rejected")) {
-        errorCode = "login_rejected";
       } else {
         errorCode = "offline";
       }
+      debugPrint('FTP ERROR: $e');
       if (mounted)
         setState(() {
           _isConnected = false;
           _remoteError = errorCode;
+          _remoteErrorDetail = e.toString();
         });
     } finally {
-      if (connected)
-        try {
-          await ftp.disconnect();
-        } catch (_) {}
+      try {
+        await ftp.disconnect();
+      } catch (_) {}
       if (mounted) setState(() => _isConnecting = false);
     }
   }
@@ -205,28 +202,26 @@ class _FtpPageState extends State<FtpPage> {
     if (!mounted) return;
     setState(() => _isLoadingRemote = true);
 
-    final ftp = FTPConnect(
-      widget.targetIp,
+    final ftp = FtpClient(
+      host: widget.targetIp,
       user: 'posterm',
       pass: 'dAZAD9yq',
-      port: 21,
     );
-    bool connected = false;
     try {
-      connected = await ftp.connect();
-      if (!connected) throw Exception("login_rejected");
+      await ftp.connect();
 
-      try {
-        await ftp.changeDirectory(path);
-      } catch (_) {
-        throw Exception("dir_error:$path");
+      if (path != '/') {
+        try {
+          await ftp.changeDirectory(path);
+        } catch (_) {
+          throw Exception("dir_error:$path");
+        }
       }
 
-      final entries = await ftp.listDirectoryContent();
+      final entries = await ftp.listDirectory();
       entries.sort((a, b) {
-        if (a.type == FTPEntryType.dir && b.type == FTPEntryType.file)
-          return -1;
-        if (a.type == FTPEntryType.file && b.type == FTPEntryType.dir) return 1;
+        if (a.isDirectory && !b.isDirectory) return -1;
+        if (!a.isDirectory && b.isDirectory) return 1;
         return a.name.compareTo(b.name);
       });
 
@@ -256,10 +251,9 @@ class _FtpPageState extends State<FtpPage> {
         }
       }
     } finally {
-      if (connected)
-        try {
-          await ftp.disconnect();
-        } catch (_) {}
+      try {
+        await ftp.disconnect();
+      } catch (_) {}
       if (mounted) setState(() => _isLoadingRemote = false);
     }
   }
@@ -297,7 +291,7 @@ class _FtpPageState extends State<FtpPage> {
       );
       return;
     }
-    if (_selectedRemoteFile!.type == FTPEntryType.dir) {
+    if (_selectedRemoteFile!.isDirectory) {
       CustomSnackBar.show(
         context,
         "Tidak dapat mengunduh folder.",
@@ -334,7 +328,7 @@ class _FtpPageState extends State<FtpPage> {
       );
       return;
     }
-    if (_selectedRemoteFile!.type == FTPEntryType.dir) {
+    if (_selectedRemoteFile!.isDirectory) {
       CustomSnackBar.show(
         context,
         "Tidak dapat menghapus folder.",
@@ -422,7 +416,7 @@ class _FtpPageState extends State<FtpPage> {
                     const SizedBox(height: 6),
                     Text(
                       isLocal
-                          ? "Hapus file berikut dari laptop?"
+                          ? "Hapus file berikut dari PC?"
                           : "Hapus file berikut dari STB?",
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -876,7 +870,7 @@ class _FtpPageState extends State<FtpPage> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        "Laptop  ↔  STB ${widget.targetIp}",
+                        "PC  ↔  STB ${widget.targetIp}",
                         style: TextStyle(
                           color: context.textSecondary,
                           fontSize: 12,
@@ -1043,7 +1037,7 @@ class _FtpPageState extends State<FtpPage> {
               ),
               const SizedBox(width: 6),
               Text(
-                isLocal ? "Laptop" : "STB Remote",
+                isLocal ? "PC" : "STB Remote",
                 style: TextStyle(
                   color: isLocal
                       ? context.accentColor
@@ -1232,7 +1226,7 @@ class _FtpPageState extends State<FtpPage> {
               ),
               const SizedBox(height: 6),
               Text(
-                "Pastikan STB aktif dan terhubung ke jaringan",
+                _remoteErrorDetail,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: context.textSecondary, fontSize: 11),
               ),
@@ -1368,10 +1362,10 @@ class _FtpPageState extends State<FtpPage> {
             },
           ),
         ..._remoteFiles.map((entry) {
-          final isDir = entry.type == FTPEntryType.dir;
+          final isDir = entry.isDirectory;
           final size = isDir
               ? ""
-              : "${((entry.size ?? 0) / (1024 * 1024)).toStringAsFixed(2)} MB";
+              : "${((entry.size) / (1024 * 1024)).toStringAsFixed(2)} MB";
           return _buildFileRow(
             entry.name,
             size,

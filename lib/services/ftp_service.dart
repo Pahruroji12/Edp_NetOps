@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:ftpconnect/ftpconnect.dart';
+import 'ftp_client.dart';
 import '../utils/app_colors.dart';
 import '../utils/globals.dart';
 import '../utils/custom_snackbar.dart';
@@ -32,29 +32,30 @@ class FtpService extends ChangeNotifier {
     statusMessage = 'Menghubungkan ke $ipStb...';
     notifyListeners();
 
-    final ftp = FTPConnect(ipStb, user: 'posterm', pass: 'dAZAD9yq', port: 21);
+    final ftp = FtpClient(host: ipStb, user: 'posterm', pass: 'dAZAD9yq');
     try {
       await ftp.connect();
       await ftp.changeDirectory(remotePath);
 
-      statusMessage = 'Mengirim: ${file.path.split('\\').last}...';
+      final fileName = file.path.split('\\').last;
+      statusMessage = 'Mengirim: $fileName...';
       notifyListeners();
 
-      final result = await ftp.uploadFile(file);
+      await ftp.uploadFile(
+        file,
+        fileName,
+        onProgress: (p) {
+          uploadProgress = p;
+          statusMessage = 'Mengirim: ${(p * 100).toStringAsFixed(1)}%...';
+          notifyListeners();
+        },
+      );
       uploadProgress = 1.0;
-      statusMessage = result ? 'Upload berhasil!' : 'Gagal mengirim file.';
-      _showNotif(
-        result
-            ? 'File berhasil dikirim ke STB.'
-            : 'Gagal mengirim file ke STB.',
-        result ? AppStatusColors.success : AppStatusColors.danger,
-      );
+      statusMessage = 'Upload berhasil!';
+      _showNotif('File berhasil dikirim ke STB.', AppStatusColors.success);
     } catch (e) {
-      statusMessage = 'Error: Koneksi terputus / IP tidak aktif';
-      _showNotif(
-        'Gagal upload: koneksi ke STB terputus.',
-        AppStatusColors.danger,
-      );
+      statusMessage = 'Gagal: ${e.toString()}';
+      _showNotif('Gagal upload ke STB: $e', AppStatusColors.danger);
     } finally {
       try {
         await ftp.disconnect();
@@ -82,31 +83,34 @@ class FtpService extends ChangeNotifier {
     statusMessage = 'Mengunduh: $fileName...';
     notifyListeners();
 
-    final ftp = FTPConnect(ipStb, user: 'posterm', pass: 'dAZAD9yq', port: 21);
+    final ftp = FtpClient(host: ipStb, user: 'posterm', pass: 'dAZAD9yq');
     try {
       await ftp.connect();
       await ftp.changeDirectory(remotePath);
 
+      // Ambil ukuran file untuk progress bar
+      final totalBytes = await ftp.getFileSize(fileName);
+
       final savePath = localDir.endsWith('\\')
           ? '$localDir$fileName'
           : '$localDir\\$fileName';
-      final localFile = File(savePath);
-      final result = await ftp.downloadFile(fileName, localFile);
+      await ftp.downloadFile(
+        fileName,
+        File(savePath),
+        totalBytes: totalBytes,
+        onProgress: (p) {
+          uploadProgress = p;
+          statusMessage = 'Mengunduh: ${(p * 100).toStringAsFixed(1)}%...';
+          notifyListeners();
+        },
+      );
 
       uploadProgress = 1.0;
-      statusMessage = result ? 'Download berhasil!' : 'Gagal mengunduh file.';
-      _showNotif(
-        result
-            ? 'File berhasil diunduh ke $localDir'
-            : 'Gagal mengunduh file dari STB.',
-        result ? AppStatusColors.success : AppStatusColors.danger,
-      );
+      statusMessage = 'Download berhasil!';
+      _showNotif('File berhasil diunduh ke $localDir', AppStatusColors.success);
     } catch (e) {
-      statusMessage = 'Error: Koneksi terputus / file tidak ditemukan';
-      _showNotif(
-        'Gagal download: koneksi ke STB terputus.',
-        AppStatusColors.danger,
-      );
+      statusMessage = 'Gagal: ${e.toString()}';
+      _showNotif('Gagal download dari STB: $e', AppStatusColors.danger);
     } finally {
       try {
         await ftp.disconnect();
@@ -127,7 +131,7 @@ class FtpService extends ChangeNotifier {
     String remotePath,
     String fileName,
   ) async {
-    final ftp = FTPConnect(ipStb, user: 'posterm', pass: 'dAZAD9yq', port: 21);
+    final ftp = FtpClient(host: ipStb, user: 'posterm', pass: 'dAZAD9yq');
     try {
       await ftp.connect();
       await ftp.changeDirectory(remotePath);
