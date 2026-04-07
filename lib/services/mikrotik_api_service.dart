@@ -154,6 +154,22 @@ class MikrotikApiService {
     ]);
   }
 
+  // --- AMBIL SEMUA INTERFACE WIRELESS + STATUS DEFAULT-AUTH ---
+  /// Return: List of Map {'name': String, 'defaultAuth': bool}
+  Future<List<Map<String, dynamic>>> getWirelessInterfaces() async {
+    final response = await _sendCommand(['/interface/wireless/print']);
+    final results = <Map<String, dynamic>>[];
+    for (final item in response) {
+      final name = item['name'] ?? item['.id'] ?? 'wlan?';
+      final defaultAuth = item['default-authentication'] == 'true';
+      results.add({'name': name, 'defaultAuth': defaultAuth});
+    }
+    results.sort(
+      (a, b) => (a['name'] as String).compareTo(b['name'] as String),
+    );
+    return results;
+  }
+
   // ==========================================
   // 3. LOGIC LOGIN (MODERN + LEGACY)
   // ==========================================

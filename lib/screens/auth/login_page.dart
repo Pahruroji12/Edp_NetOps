@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../dashboard/dashboard_page.dart';
+import 'package:go_router/go_router.dart';
 import '../../utils/custom_snackbar.dart';
 // import '../../utils/encryption_helper.dart';
 import '../../utils/app_colors.dart';
@@ -165,10 +165,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             "Selamat datang, $currentUserName!",
             Colors.blue,
           );
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const DashboardPage()),
-          );
+          context.go('/dashboard');
         }
       }
     } on AuthException catch (_) {
@@ -636,7 +633,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           const SizedBox(height: 20),
           Center(
             child: Text(
-              'EDP NetOps v2.3  ·  Developed by Pahruroji',
+              'EDP NetOps v2.5  ·  Developed by Pahruroji',
               style: TextStyle(
                 color: context.textSecondary.withOpacity(0.45),
                 fontSize: 10,
@@ -927,7 +924,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'EDP NetOps v2.3  ·  Developed by Pahruroji',
+                  'EDP NetOps v2.5  ·  Developed by Pahruroji',
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

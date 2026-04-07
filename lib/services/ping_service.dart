@@ -26,8 +26,6 @@ class PingService extends ChangeNotifier {
   bool pingCctv2 = false;
   String manualIps = "";
 
-  int speedMode = 5;
-
   bool isAutoPingSTBActive = false;
   Timer? _schedulerTimer;
   bool _isAutoPingRunning = false;
@@ -44,11 +42,6 @@ class PingService extends ChangeNotifier {
     if (type == 'RB') pingRbWdcp = val;
     if (type == 'C1') pingCctv1 = val;
     if (type == 'C2') pingCctv2 = val;
-    notifyListeners();
-  }
-
-  void setSpeed(int speed) {
-    speedMode = speed;
     notifyListeners();
   }
 
@@ -88,7 +81,6 @@ class PingService extends ChangeNotifier {
     final backupRb = pingRbWdcp;
     final backupCc1 = pingCctv1;
     final backupCc2 = pingCctv2;
-    final backupSpeed = speedMode;
 
     // Paksa ke STB saja
     pingGateway = false;
@@ -97,7 +89,6 @@ class PingService extends ChangeNotifier {
     pingRbWdcp = false;
     pingCctv1 = false;
     pingCctv2 = false;
-    speedMode = 1;
     notifyListeners();
 
     await startPing(isAutoRun: true);
@@ -109,7 +100,6 @@ class PingService extends ChangeNotifier {
     pingRbWdcp = backupRb;
     pingCctv1 = backupCc1;
     pingCctv2 = backupCc2;
-    speedMode = backupSpeed;
     notifyListeners();
 
     _isAutoPingRunning = false;
@@ -190,7 +180,7 @@ class PingService extends ChangeNotifier {
 
       final int totalTarget = targetList.length;
       int completed = 0;
-      final int batchSize = speedMode;
+      const int batchSize = 1;
 
       for (int i = 0; i < totalTarget; i += batchSize) {
         final batch = targetList.sublist(i, min(i + batchSize, totalTarget));

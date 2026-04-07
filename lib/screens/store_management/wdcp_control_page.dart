@@ -419,8 +419,6 @@ class _WdcpControlPageState extends State<WdcpControlPage>
                                         ],
                                       );
                                     } else {
-                                      // Layar sempit: tab panel atas, right panels di bawah
-                                      // Tab panel tidak pakai fixed height 600 agar tidak overflow
                                       return Column(
                                         children: [
                                           _buildLeftTabPanel(compact: true),

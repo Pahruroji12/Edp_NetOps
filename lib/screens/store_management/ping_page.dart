@@ -1,16 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../widgets/main_layout.dart';
 import '../../services/ping_service.dart';
 import '../../utils/app_colors.dart';
-import '../../utils/activity_logger.dart';
-import '../../utils/custom_snackbar.dart';
-import '../auth/login_page.dart';
-import '../dashboard/dashboard_page.dart';
-import '../profile/profile_page.dart';
-import '../profile/admin_panel_page.dart';
-import '../settings/settings_page.dart';
-import '../store_management/store_list_page.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PingPage extends StatefulWidget {
   const PingPage({super.key});
@@ -35,31 +27,6 @@ class _PingPageState extends State<PingPage>
   // AUTH
   // ══════════════════════════════════════════════════════════
 
-  Future<void> _logout(BuildContext ctx) async {
-    try {
-      await ActivityLogger.updateOnlineStatus(false);
-      await ActivityLogger.logAction(
-        actionType: "LOGOUT",
-        description: "Pengguna keluar dari sistem",
-      );
-      await Supabase.instance.client.auth.signOut();
-      currentUserNik = '';
-      currentUserName = '';
-      currentUserRole = '';
-      if (ctx.mounted) {
-        Navigator.pushAndRemoveUntil(
-          ctx,
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (ctx.mounted) {
-        CustomSnackBar.show(ctx, "Gagal logout: $e", ctx.dangerColor);
-      }
-    }
-  }
-
   // ══════════════════════════════════════════════════════════
   // BUILD UTAMA
   // ══════════════════════════════════════════════════════════
@@ -76,6 +43,14 @@ class _PingPageState extends State<PingPage>
             "Ping Scanner",
             style: TextStyle(color: context.textPrimary),
           ),
+          automaticallyImplyLeading: false,
+          leading: MediaQuery.of(context).size.width >= 850
+              ? null
+              : IconButton(
+                  icon: Icon(Icons.menu_rounded, color: context.textPrimary),
+                  onPressed: () =>
+                      MainLayout.scaffoldKey.currentState?.openDrawer(),
+                ),
           iconTheme: IconThemeData(color: context.textPrimary),
         ),
         body: Center(
@@ -102,7 +77,7 @@ class _PingPageState extends State<PingPage>
 
     return Scaffold(
       backgroundColor: context.primaryColor,
-      drawer: _buildDrawer(),
+
       body: AnimatedOpacity(
         opacity: _animationsReady ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 500),
@@ -159,14 +134,7 @@ class _PingPageState extends State<PingPage>
                           _buildManualInputCard(engine),
                           const SizedBox(height: 24),
 
-                          // ── Mode Kecepatan ──────────────────────
-                          _buildSectionHeader(
-                            "MODE KECEPATAN",
-                            Icons.speed_outlined,
-                          ),
-                          const SizedBox(height: 12),
-                          _buildSpeedCard(engine),
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 8),
 
                           // ── Tombol Start ─────────────────────────
                           _buildStartButton(engine),
@@ -194,6 +162,14 @@ class _PingPageState extends State<PingPage>
       pinned: true,
       backgroundColor: context.primaryColor,
       elevation: 0,
+      automaticallyImplyLeading: false,
+      leading: MediaQuery.of(context).size.width >= 850
+          ? null
+          : IconButton(
+              icon: Icon(Icons.menu_rounded, color: context.textPrimary),
+              onPressed: () =>
+                  MainLayout.scaffoldKey.currentState?.openDrawer(),
+            ),
       iconTheme: IconThemeData(color: context.textPrimary),
       title: Row(
         children: [
@@ -212,14 +188,23 @@ class _PingPageState extends State<PingPage>
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            "PING SCANNER",
-            style: TextStyle(
-              color: context.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "PING SCANNER",
+                style: TextStyle(
+                  color: context.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2,
+                ),
+              ),
+              Text(
+                "Ping Scanner — Network Tools",
+                style: TextStyle(color: context.textSecondary, fontSize: 10),
+              ),
+            ],
           ),
         ],
       ),
@@ -615,186 +600,6 @@ class _PingPageState extends State<PingPage>
   }
 
   // ══════════════════════════════════════════════════════════
-  // MODE KECEPATAN CARD
-  // ══════════════════════════════════════════════════════════
-
-  Widget _buildSpeedCard(PingService engine) {
-    final speeds = [
-      {
-        'value': 1,
-        'label': 'Santai',
-        'sub': '1 request per giliran',
-        'tag': 'LOW',
-        'color': context.successColor,
-        'icon': Icons.looks_one_outlined,
-      },
-      {
-        'value': 5,
-        'label': 'Sedang',
-        'sub': '5 request sekaligus',
-        'tag': 'MED',
-        'color': context.warningColor,
-        'icon': Icons.looks_two_outlined,
-      },
-      {
-        'value': 20,
-        'label': 'Agresif',
-        'sub': '20 request sekaligus',
-        'tag': 'HIGH',
-        'color': context.dangerColor,
-        'icon': Icons.looks_3_outlined,
-      },
-    ];
-
-    return _buildCard(
-      accentLeft: context.warningColor,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildCardHeader(
-            "Mode Kecepatan Ping",
-            "Sesuaikan dengan kondisi jaringan kantor",
-            Icons.speed_outlined,
-            context.warningColor,
-          ),
-          const SizedBox(height: 20),
-          ...speeds.map((s) {
-            final val = s['value'] as int;
-            final selected = engine.speedMode == val;
-            final color = s['color'] as Color;
-            final icon = s['icon'] as IconData;
-
-            return GestureDetector(
-              onTap: engine.isScanning ? null : () => engine.setSpeed(val),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 13,
-                ),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? color.withOpacity(0.07)
-                      : context.surfaceColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: selected
-                        ? color.withOpacity(0.4)
-                        : context.borderColor,
-                    width: selected ? 1.5 : 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    // Icon box
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? color.withOpacity(0.12)
-                            : context.cardColor,
-                        borderRadius: BorderRadius.circular(9),
-                        border: Border.all(
-                          color: selected
-                              ? color.withOpacity(0.3)
-                              : context.borderColor,
-                        ),
-                      ),
-                      child: Icon(
-                        icon,
-                        size: 16,
-                        color: selected ? color : context.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    // Label + sub
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            s['label'] as String,
-                            style: TextStyle(
-                              color: selected
-                                  ? context.textPrimary
-                                  : context.textSecondary,
-                              fontSize: 13,
-                              fontWeight: selected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            s['sub'] as String,
-                            style: TextStyle(
-                              color: context.textSecondary.withOpacity(0.6),
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Tag badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(selected ? 0.12 : 0.05),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: color.withOpacity(selected ? 0.35 : 0.15),
-                        ),
-                      ),
-                      child: Text(
-                        s['tag'] as String,
-                        style: TextStyle(
-                          color: selected
-                              ? color
-                              : context.textSecondary.withOpacity(0.5),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Radio indicator
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 18,
-                      height: 18,
-                      decoration: BoxDecoration(
-                        color: selected ? color : Colors.transparent,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: selected ? color : context.borderColor,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: selected
-                          ? const Icon(
-                              Icons.check,
-                              size: 11,
-                              color: Colors.white,
-                            )
-                          : null,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════
   // MANUAL INPUT CARD (NOTEPAD MINI)
   // ══════════════════════════════════════════════════════════
 
@@ -1034,481 +839,6 @@ class _PingPageState extends State<PingPage>
                   ),
                 ),
               ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════
-  // DRAWER (identik dengan settings & profile)
-  // ══════════════════════════════════════════════════════════
-
-  Widget _buildDrawer() {
-    Color roleAccentD;
-    IconData roleIconD;
-    switch (currentUserRole.toLowerCase()) {
-      case 'administrator':
-        roleAccentD = const Color(0xFFFF6B6B);
-        roleIconD = Icons.admin_panel_settings_outlined;
-        break;
-      case 'admin':
-        roleAccentD = const Color(0xFFFFB347);
-        roleIconD = Icons.manage_accounts_outlined;
-        break;
-      default:
-        roleAccentD = context.accentColor;
-        roleIconD = Icons.person_outline;
-    }
-
-    final nameParts = currentUserName.trim().split(' ');
-    final initialsD = nameParts.length >= 2
-        ? '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase()
-        : currentUserName.isNotEmpty
-        ? currentUserName[0].toUpperCase()
-        : 'U';
-
-    return Drawer(
-      backgroundColor: context.surfaceColor,
-      child: Column(
-        children: [
-          // ── Header ──────────────────────────────────────
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [roleAccentD.withOpacity(0.13), context.cardColor],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border(bottom: BorderSide(color: context.borderColor)),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    roleAccentD,
-                                    roleAccentD.withOpacity(0.55),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(18),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: roleAccentD.withOpacity(0.35),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Text(
-                                  initialsD,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              right: -5,
-                              bottom: -5,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: context.surfaceColor,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: roleAccentD.withOpacity(0.5),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Icon(
-                                  roleIconD,
-                                  size: 12,
-                                  color: roleAccentD,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF00E676).withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: const Color(0xFF00E676).withOpacity(0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF00E676),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(
-                                        0xFF00E676,
-                                      ).withOpacity(0.7),
-                                      blurRadius: 5,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              const Text(
-                                'Online',
-                                style: TextStyle(
-                                  color: Color(0xFF00E676),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      currentUserName.isNotEmpty ? currentUserName : 'User',
-                      style: TextStyle(
-                        color: context.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 5),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.badge_outlined,
-                          size: 12,
-                          color: context.textSecondary.withOpacity(0.6),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          currentUserNik,
-                          style: TextStyle(
-                            color: context.textSecondary,
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: roleAccentD.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: roleAccentD.withOpacity(0.35),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(roleIconD, size: 11, color: roleAccentD),
-                          const SizedBox(width: 6),
-                          Text(
-                            currentUserRole.toUpperCase(),
-                            style: TextStyle(
-                              color: roleAccentD,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // ── Menu Items ───────────────────────────────────
-          _buildDrawerTile(
-            icon: Icons.dashboard_outlined,
-            label: 'Dashboard',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const DashboardPage()),
-              );
-            },
-          ),
-          _buildDrawerTile(
-            icon: Icons.store_outlined,
-            label: 'Data Toko',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const StoreListPage()),
-              );
-            },
-          ),
-
-          // ── Active: Ping Scanner ─────────────────────────
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-            decoration: BoxDecoration(
-              color: context.accentColor.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: context.accentColor.withOpacity(0.2)),
-            ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 2,
-              ),
-              leading: Icon(
-                Icons.network_check,
-                color: context.accentColor,
-                size: 20,
-              ),
-              title: Text(
-                'Ping Scanner',
-                style: TextStyle(
-                  color: context.accentColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              onTap: () => Navigator.pop(context),
-            ),
-          ),
-
-          _buildDrawerTile(
-            icon: Icons.person_outline,
-            label: 'Profil Saya',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfilePage()),
-              );
-            },
-          ),
-
-          if (currentUserRole.toLowerCase() == 'administrator') ...[
-            _buildDrawerTile(
-              icon: Icons.settings_outlined,
-              label: 'Setting',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SettingsPage()),
-                );
-              },
-            ),
-            _buildDrawerTile(
-              icon: Icons.admin_panel_settings_outlined,
-              label: 'Control Center',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AdminPanelPage()),
-                );
-              },
-            ),
-          ],
-
-          const Spacer(),
-          Container(
-            height: 1,
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            color: context.borderColor,
-          ),
-          const SizedBox(height: 8),
-          _buildDrawerTile(
-            icon: Icons.logout_outlined,
-            label: 'Keluar Aplikasi',
-            iconColor: const Color(0xFFFF6B6B),
-            labelColor: const Color(0xFFFF6B6B),
-            onTap: () {
-              Navigator.pop(context);
-              _showLogoutDialog();
-            },
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerTile({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Color? iconColor,
-    Color? labelColor,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-      leading: Icon(icon, color: iconColor ?? context.textSecondary, size: 20),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: labelColor ?? context.textPrimary,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      onTap: onTap,
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════
-  // LOGOUT DIALOG
-  // ══════════════════════════════════════════════════════════
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (dialogContext) => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              decoration: BoxDecoration(
-                color: context.cardColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: context.borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    blurRadius: 30,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2A1520),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFFFF6B6B).withOpacity(0.3),
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.logout_outlined,
-                      color: Color(0xFFFF6B6B),
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    "Keluar Aplikasi?",
-                    style: TextStyle(
-                      color: context.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    "Apakah Anda yakin ingin keluar dari aplikasi EDP NetOps?",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: context.textSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(dialogContext),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: context.borderColor),
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: Text(
-                            "Batal",
-                            style: TextStyle(color: context.textSecondary),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => _logout(dialogContext),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF6B6B),
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: const Text(
-                            "Ya, Keluar",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
             ),
           ),
         ),

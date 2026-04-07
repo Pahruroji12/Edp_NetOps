@@ -1,19 +1,14 @@
-import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/store_model.dart';
-import '../store_management/store_list_page.dart';
 import '../store_management/store_detail_page.dart';
-import '../auth/login_page.dart';
-import '../profile/profile_page.dart';
 import '../../utils/app_colors.dart';
-import '../settings/settings_page.dart';
 import '../../utils/custom_snackbar.dart';
-import '../../utils/activity_logger.dart';
-import '../profile/admin_panel_page.dart';
-import '../store_management/ping_page.dart';
+import '../../widgets/main_layout.dart'; // untuk MainLayout.scaffoldKey
+import '../auth/login_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -184,39 +179,6 @@ class _DashboardPageState extends State<DashboardPage> {
   // ========================================== //
   // LOGOUT FUNCTION //
   // ========================================== //
-  Future<void> _logout(BuildContext context) async {
-    try {
-      // 1. Matikan lampu status jadi Offline
-      await ActivityLogger.updateOnlineStatus(false);
-
-      // 2. Catat log bahwa user ini keluar dari aplikasi
-      await ActivityLogger.logAction(
-        actionType: "LOGOUT",
-        description: "Pengguna keluar dari sistem",
-      );
-
-      // 3. Hapus token sesi dengan aman menggunakan Supabase Auth
-      await Supabase.instance.client.auth.signOut();
-
-      // 4. Bersihkan memori variabel global
-      currentUserNik = '';
-      currentUserName = '';
-      currentUserRole = '';
-
-      // 5. Arahkan kembali ke halaman Login secara total (menghapus riwayat 'back')
-      if (context.mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (c) => const LoginPage()),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        CustomSnackBar.show(context, "Gagal logout: $e", Colors.red);
-      }
-    }
-  }
 
   void _runFilter(String keyword) {
     List<StoreModel> results = keyword.isEmpty
@@ -239,7 +201,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.primaryColor,
-      drawer: _buildDrawer(),
+      // Tidak ada drawer/sidebar — ditangani MainLayout (ShellRoute)
       body: _isLoading
           ? _buildLoadingScreen()
           : AnimatedOpacity(
@@ -265,14 +227,12 @@ class _DashboardPageState extends State<DashboardPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Welcome section — slide up delay 220ms
                             _animSection(
                               visible: _showWelcome,
                               delay: 0,
                               child: _buildWelcomeSection(),
                             ),
                             const SizedBox(height: 24),
-                            // Stats label + grid — slide up delay 400ms
                             _animSection(
                               visible: _showStats,
                               delay: 0,
@@ -289,7 +249,6 @@ class _DashboardPageState extends State<DashboardPage> {
                               ),
                             ),
                             const SizedBox(height: 24),
-                            // Store list — slide up delay 580ms
                             _animSection(
                               visible: _showStoreList,
                               delay: 0,
@@ -369,10 +328,20 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildSliverAppBar() {
+    final isDesktop = MediaQuery.of(context).size.width >= 850;
     return SliverAppBar(
       pinned: true,
       backgroundColor: context.primaryColor,
       elevation: 0,
+      automaticallyImplyLeading: false,
+      // Hamburger hanya di mobile — buka drawer MainLayout
+      leading: isDesktop
+          ? null
+          : IconButton(
+              icon: Icon(Icons.menu_rounded, color: context.textPrimary),
+              onPressed: () =>
+                  MainLayout.scaffoldKey.currentState?.openDrawer(),
+            ),
       iconTheme: IconThemeData(color: context.textPrimary),
       title: Builder(
         builder: (ctx) {
@@ -451,6 +420,47 @@ class _DashboardPageState extends State<DashboardPage> {
         },
       ),
       actions: [
+        // Toggle dark/light mode
+        ValueListenableBuilder<ThemeMode>(
+          valueListenable: themeNotifier,
+          builder: (context, mode, _) {
+            final isDark = mode == ThemeMode.dark;
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => themeNotifier.value = isDark
+                    ? ThemeMode.light
+                    : ThemeMode.dark,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 4,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: context.accentColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: context.accentColor.withOpacity(0.2),
+                    ),
+                  ),
+                  child: Icon(
+                    isDark
+                        ? Icons.light_mode_outlined
+                        : Icons.dark_mode_outlined,
+                    color: context.accentColor,
+                    size: 16,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 4),
         Material(
           color: Colors.transparent,
           child: InkWell(
@@ -1032,115 +1042,98 @@ class _DashboardPageState extends State<DashboardPage> {
   // IP address disembunyikan di layar sangat sempit
   // ==========================================
   Widget _buildStoreItem(StoreModel store) {
-    String mainType = (store.connectionType ?? "-").trim().toUpperCase();
-    String backupType = (store.connectionBackup ?? "").trim().toUpperCase();
-    bool hasBackup = backupType.isNotEmpty && backupType != "-";
-    bool hasIpVsat = store.ipVsat != null && store.ipVsat!.isNotEmpty;
-
-    if (!hasBackup && hasIpVsat) {
-      backupType = "VSAT";
-      hasBackup = true;
-    }
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => StoreDetailPage(store: store),
-          ),
+          MaterialPageRoute(builder: (c) => StoreDetailPage(store: store)),
         ),
-        splashColor: context.accentColor.withOpacity(0.05),
-        highlightColor: context.accentColor.withOpacity(0.03),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: LayoutBuilder(
-            builder: (_, constraints) {
-              final isWide = constraints.maxWidth >= 380;
-              return Row(
-                children: [
-                  // Avatar
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: context.surfaceColor,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: context.borderColor),
-                    ),
-                    child: Center(
-                      child: Text(
-                        store.storeCode.isNotEmpty
-                            ? store.storeCode.substring(0, 1)
-                            : "?",
-                        style: TextStyle(
-                          color: context.accentColor,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Info
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Row(
+            children: [
+              // Icon Store
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: context.accentColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.store_rounded,
+                  size: 18,
+                  color: context.accentColor,
+                ),
+              ),
+              const SizedBox(width: 14),
+
+              // Info Toko (Kode, Nama, & Connection)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          "${store.storeCode} — ${store.storeName}",
-                          style: TextStyle(
-                            color: context.textPrimary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
+                        // Gabungan Kode & Nama Toko
+                        Flexible(
+                          child: Text(
+                            "${store.storeCode} - ${store.storeName}",
+                            style: TextStyle(
+                              color: context.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 5),
-                        Row(
-                          children: [
-                            _buildConnectionBadge(mainType),
-                            if (hasBackup) ...[
-                              const SizedBox(width: 5),
-                              Icon(
-                                Icons.add,
-                                size: 9,
-                                color: context.textSecondary,
+
+                        const SizedBox(width: 6),
+
+                        Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () {
+                              final String textToCopy =
+                                  "${store.storeCode} - ${store.storeName}";
+                              Clipboard.setData(
+                                ClipboardData(text: textToCopy),
+                              );
+
+                              CustomSnackBar.show(
+                                context,
+                                'Info toko disalin!',
+                                context.accentColor,
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(4.0),
+                              child: Icon(
+                                Icons.content_copy_rounded,
+                                size: 13,
+                                color: context.textSecondary.withOpacity(0.6),
                               ),
-                              const SizedBox(width: 5),
-                              _buildConnectionBadge(backupType),
-                            ],
-                            // IP hanya tampil jika lebar cukup
-                            if (isWide) ...[
-                              const SizedBox(width: 10),
-                              Flexible(
-                                child: Text(
-                                  store.ipGateway ?? "No IP",
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: context.textSecondary,
-                                    fontFamily: 'monospace',
-                                    letterSpacing: 0.5,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    size: 16,
-                    color: context.textSecondary,
-                  ),
-                ],
-              );
-            },
+                    const SizedBox(height: 4),
+                    _buildConnectionBadge(store.connectionType ?? '-'),
+                  ],
+                ),
+              ),
+
+              // Chevron Icon
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: context.textSecondary.withOpacity(0.5),
+              ),
+            ],
           ),
         ),
       ),
@@ -1183,488 +1176,6 @@ class _DashboardPageState extends State<DashboardPage> {
           letterSpacing: 0.5,
         ),
       ),
-    );
-  }
-
-  Widget _buildDrawer() {
-    // Warna & icon sesuai role
-    Color roleAccentD;
-    IconData roleIconD;
-    switch (currentUserRole.toLowerCase()) {
-      case 'administrator':
-        roleAccentD = const Color(0xFFFF6B6B);
-        roleIconD = Icons.admin_panel_settings_outlined;
-        break;
-      case 'admin':
-        roleAccentD = const Color(0xFFFFB347);
-        roleIconD = Icons.manage_accounts_outlined;
-        break;
-      default:
-        roleAccentD = context.accentColor;
-        roleIconD = Icons.person_outline;
-    }
-
-    // Inisial 2 huruf
-    final nameParts = currentUserName.trim().split(' ');
-    final initialsD = nameParts.length >= 2
-        ? '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase()
-        : currentUserName.isNotEmpty
-        ? currentUserName[0].toUpperCase()
-        : 'U';
-
-    return Drawer(
-      backgroundColor: context.surfaceColor,
-      child: Column(
-        children: [
-          // ── HEADER DRAWER ─────────────────────────────────
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [roleAccentD.withOpacity(0.13), context.cardColor],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border(bottom: BorderSide(color: context.borderColor)),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Avatar + status online
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Avatar kotak inisial 2 huruf
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    roleAccentD,
-                                    roleAccentD.withOpacity(0.55),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(18),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: roleAccentD.withOpacity(0.35),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Text(
-                                  initialsD,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Role icon badge sudut kanan bawah
-                            Positioned(
-                              right: -5,
-                              bottom: -5,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: context.surfaceColor,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: roleAccentD.withOpacity(0.5),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Icon(
-                                  roleIconD,
-                                  size: 12,
-                                  color: roleAccentD,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        // Status pill online
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF00E676).withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: const Color(0xFF00E676).withOpacity(0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF00E676),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(
-                                        0xFF00E676,
-                                      ).withOpacity(0.7),
-                                      blurRadius: 5,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              const Text(
-                                'Online',
-                                style: TextStyle(
-                                  color: Color(0xFF00E676),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Nama
-                    Text(
-                      currentUserName.isNotEmpty ? currentUserName : 'User',
-                      style: TextStyle(
-                        color: context.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    const SizedBox(height: 5),
-
-                    // NIK monospace
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.badge_outlined,
-                          size: 12,
-                          color: context.textSecondary.withOpacity(0.6),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          currentUserNik,
-                          style: TextStyle(
-                            color: context.textSecondary,
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Role badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: roleAccentD.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: roleAccentD.withOpacity(0.35),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(roleIconD, size: 11, color: roleAccentD),
-                          const SizedBox(width: 6),
-                          Text(
-                            currentUserRole.toUpperCase(),
-                            style: TextStyle(
-                              color: roleAccentD,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-            decoration: BoxDecoration(
-              color: context.accentColor.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: context.accentColor.withOpacity(0.2)),
-            ),
-            child: ListTile(
-              leading: Icon(
-                Icons.dashboard_outlined,
-                color: context.accentColor,
-                size: 20,
-              ),
-              title: Text(
-                'Dashboard',
-                style: TextStyle(
-                  color: context.accentColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-              onTap: () => Navigator.pop(context),
-            ),
-          ),
-          _buildDrawerTile(
-            icon: Icons.store_outlined,
-            label: 'Data Toko',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => const StoreListPage()),
-              );
-            },
-          ),
-
-          if (Platform.isWindows)
-            _buildDrawerTile(
-              icon: Icons.network_check,
-              label: 'Ping Scanner',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const PingPage()),
-                );
-              },
-            ),
-
-          _buildDrawerTile(
-            icon: Icons.person_outline,
-            label: 'Profil Saya',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => const ProfilePage()),
-              );
-            },
-          ),
-
-          if (currentUserRole.toLowerCase() == 'administrator') ...[
-            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
-            _buildDrawerTile(
-              icon: Icons.settings_outlined,
-              label: 'Setting',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (c) => const SettingsPage()),
-                );
-              },
-            ),
-          ],
-
-          if (currentUserRole.toLowerCase() == 'administrator') ...[
-            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
-            _buildDrawerTile(
-              icon: Icons.admin_panel_settings_outlined,
-              label: 'Control Center',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (c) => const AdminPanelPage()),
-                );
-              },
-            ),
-          ],
-          const Spacer(),
-          Container(
-            height: 1,
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            color: context.borderColor,
-          ),
-          const SizedBox(height: 8),
-          _buildDrawerTile(
-            icon: Icons.logout_outlined,
-            label: 'Keluar Aplikasi',
-            iconColor: const Color(0xFFFF6B6B),
-            labelColor: const Color(0xFFFF6B6B),
-            onTap: () {
-              Navigator.pop(context);
-              _showLogoutDialog();
-            },
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerTile({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Color? iconColor,
-    Color? labelColor,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-      leading: Icon(icon, color: iconColor ?? context.textSecondary, size: 20),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: labelColor ?? context.textPrimary,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      onTap: onTap,
-    );
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (BuildContext dialogContext) {
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                decoration: BoxDecoration(
-                  color: context.cardColor,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: context.borderColor),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.4),
-                      blurRadius: 30,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A1520),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFFFF6B6B).withOpacity(0.3),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.logout_outlined,
-                        color: Color(0xFFFF6B6B),
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      "Keluar Aplikasi?",
-                      style: TextStyle(
-                        color: context.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      "Apakah Anda yakin ingin keluar dari aplikasi EDP NetOps?",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: context.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: context.borderColor),
-                              padding: const EdgeInsets.symmetric(vertical: 13),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: Text(
-                              "Batal",
-                              style: TextStyle(color: context.textSecondary),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => _logout(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF6B6B),
-                              padding: const EdgeInsets.symmetric(vertical: 13),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: const Text(
-                              "Ya, Keluar",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }

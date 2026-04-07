@@ -1,16 +1,10 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../widgets/main_layout.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-// import '../../utils/encryption_helper.dart';
 import '../../utils/custom_snackbar.dart';
-import '../auth/login_page.dart';
-import '../dashboard/dashboard_page.dart';
-import '../store_management/store_list_page.dart';
 import '../../utils/app_colors.dart';
-import '../settings/settings_page.dart';
 import '../../utils/activity_logger.dart';
-import '../profile/admin_panel_page.dart';
-import '../store_management/ping_page.dart';
+import '../auth/login_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -78,39 +72,6 @@ class _ProfilePageState extends State<ProfilePage> {
   // ==========================================
   // LOGOUT FUNCTION //
   // ========================================== //
-  Future<void> _logout(BuildContext context) async {
-    try {
-      // 1. Matikan lampu status jadi Offline
-      await ActivityLogger.updateOnlineStatus(false);
-
-      // 2. Catat log bahwa user ini keluar dari aplikasi
-      await ActivityLogger.logAction(
-        actionType: "LOGOUT",
-        description: "Pengguna keluar dari sistem",
-      );
-
-      // 3. Hapus token sesi dengan aman menggunakan Supabase Auth
-      await Supabase.instance.client.auth.signOut();
-
-      // 4. Bersihkan memori variabel global
-      currentUserNik = '';
-      currentUserName = '';
-      currentUserRole = '';
-
-      // 5. Arahkan kembali ke halaman Login secara total (menghapus riwayat 'back')
-      if (context.mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (c) => const LoginPage()),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        CustomSnackBar.show(context, "Gagal logout: $e", Colors.red);
-      }
-    }
-  }
 
   // ==========================================
   // FUNGSI: PENCARIAN USER (SEARCH)
@@ -400,7 +361,6 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.primaryColor,
-      drawer: _buildDrawer(),
       body: _isLoading
           ? _buildLoadingOverlay()
           : AnimatedOpacity(
@@ -1006,6 +966,14 @@ class _ProfilePageState extends State<ProfilePage> {
       pinned: true,
       backgroundColor: context.primaryColor,
       elevation: 0,
+      automaticallyImplyLeading: false,
+      leading: MediaQuery.of(context).size.width >= 850
+          ? null
+          : IconButton(
+              icon: Icon(Icons.menu_rounded, color: context.textPrimary),
+              onPressed: () =>
+                  MainLayout.scaffoldKey.currentState?.openDrawer(),
+            ),
       iconTheme: IconThemeData(color: context.textPrimary),
       title: Row(
         children: [
@@ -1085,8 +1053,6 @@ class _ProfilePageState extends State<ProfilePage> {
         : currentUserName.isNotEmpty
         ? currentUserName[0].toUpperCase()
         : 'U';
-
-    final isDark = themeNotifier.value == ThemeMode.dark;
 
     return Container(
       margin: const EdgeInsets.only(top: 16),
@@ -1294,50 +1260,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             child: LayoutBuilder(
               builder: (_, constraints) {
-                final isWide = constraints.maxWidth >= 420;
-
-                // Toggle dark/light
-                final themeToggle = Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: context.accentColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        isDark ? Icons.dark_mode : Icons.light_mode,
-                        color: context.accentColor,
-                        size: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      isDark ? 'Mode Gelap' : 'Mode Terang',
-                      style: TextStyle(
-                        color: context.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Transform.scale(
-                      scale: 0.85,
-                      child: Switch(
-                        value: isDark,
-                        activeThumbColor: context.accentColor,
-                        activeTrackColor: context.accentColor.withOpacity(0.25),
-                        onChanged: (val) => setState(() {
-                          themeNotifier.value = val
-                              ? ThemeMode.dark
-                              : ThemeMode.light;
-                        }),
-                      ),
-                    ),
-                  ],
-                );
-
                 // Tombol clear cache
                 final cacheBtn = InkWell(
                   onTap: _clearAppCache,
@@ -1376,59 +1298,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 );
 
-                return isWide
-                    // Lebar: toggle kiri, cache button kanan
-                    ? Row(children: [themeToggle, const Spacer(), cacheBtn])
-                    // Sempit: toggle atas, cache button bawah full-width
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          themeToggle,
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: InkWell(
-                              onTap: _clearAppCache,
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFFFFB347,
-                                  ).withOpacity(0.08),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: const Color(
-                                      0xFFFFB347,
-                                    ).withOpacity(0.35),
-                                  ),
-                                ),
-                                child: const Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.cleaning_services_outlined,
-                                      size: 14,
-                                      color: Color(0xFFFFB347),
-                                    ),
-                                    SizedBox(width: 6),
-                                    Text(
-                                      'Bersihkan Cache Sistem',
-                                      style: TextStyle(
-                                        color: Color(0xFFFFB347),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
+                return Align(alignment: Alignment.centerRight, child: cacheBtn);
               },
             ),
           ),
@@ -1616,7 +1486,7 @@ class _ProfilePageState extends State<ProfilePage> {
       (
         Icons.tag_rounded,
         'Versi',
-        'v2.3 (Enterprise Build)',
+        'v2.5 (Enterprise Build)',
         context.accentColor,
       ),
       (Icons.build_circle_outlined, 'Build', '2026.02', context.textSecondary),
@@ -1759,7 +1629,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   child: Text(
-                    'v2.3',
+                    'v2.5',
                     style: TextStyle(
                       color: context.accentColor,
                       fontSize: 12,
@@ -2048,487 +1918,6 @@ class _ProfilePageState extends State<ProfilePage> {
               : null,
         ),
       ),
-    );
-  }
-
-  Widget _buildDrawer() {
-    // Warna & icon sesuai role
-    Color roleAccentD;
-    IconData roleIconD;
-    switch (currentUserRole.toLowerCase()) {
-      case 'administrator':
-        roleAccentD = const Color(0xFFFF6B6B);
-        roleIconD = Icons.admin_panel_settings_outlined;
-        break;
-      case 'admin':
-        roleAccentD = const Color(0xFFFFB347);
-        roleIconD = Icons.manage_accounts_outlined;
-        break;
-      default:
-        roleAccentD = context.accentColor;
-        roleIconD = Icons.person_outline;
-    }
-
-    // Inisial 2 huruf
-    final nameParts = currentUserName.trim().split(' ');
-    final initialsD = nameParts.length >= 2
-        ? '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase()
-        : currentUserName.isNotEmpty
-        ? currentUserName[0].toUpperCase()
-        : 'U';
-
-    return Drawer(
-      backgroundColor: context.surfaceColor,
-      child: Column(
-        children: [
-          // ── HEADER DRAWER ─────────────────────────────────
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [roleAccentD.withOpacity(0.13), context.cardColor],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border(bottom: BorderSide(color: context.borderColor)),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Avatar + status online
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Avatar kotak inisial 2 huruf
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    roleAccentD,
-                                    roleAccentD.withOpacity(0.55),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(18),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: roleAccentD.withOpacity(0.35),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Text(
-                                  initialsD,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Role icon badge sudut kanan bawah
-                            Positioned(
-                              right: -5,
-                              bottom: -5,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: context.surfaceColor,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: roleAccentD.withOpacity(0.5),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Icon(
-                                  roleIconD,
-                                  size: 12,
-                                  color: roleAccentD,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        // Status pill online
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF00E676).withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: const Color(0xFF00E676).withOpacity(0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF00E676),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(
-                                        0xFF00E676,
-                                      ).withOpacity(0.7),
-                                      blurRadius: 5,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              const Text(
-                                'Online',
-                                style: TextStyle(
-                                  color: Color(0xFF00E676),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Nama
-                    Text(
-                      currentUserName.isNotEmpty ? currentUserName : 'User',
-                      style: TextStyle(
-                        color: context.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    const SizedBox(height: 5),
-
-                    // NIK monospace
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.badge_outlined,
-                          size: 12,
-                          color: context.textSecondary.withOpacity(0.6),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          currentUserNik,
-                          style: TextStyle(
-                            color: context.textSecondary,
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Role badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: roleAccentD.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: roleAccentD.withOpacity(0.35),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(roleIconD, size: 11, color: roleAccentD),
-                          const SizedBox(width: 6),
-                          Text(
-                            currentUserRole.toUpperCase(),
-                            style: TextStyle(
-                              color: roleAccentD,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildDrawerTile(
-            icon: Icons.dashboard_outlined,
-            label: 'Dashboard',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (c) => const DashboardPage()),
-              );
-            },
-          ),
-          _buildDrawerTile(
-            icon: Icons.store_outlined,
-            label: 'Data Toko',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => const StoreListPage()),
-              );
-            },
-          ),
-
-          if (Platform.isWindows)
-            _buildDrawerTile(
-              icon: Icons.network_check,
-              label: 'Ping Scanner',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const PingPage()),
-                );
-              },
-            ),
-
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: context.accentColor.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: context.accentColor.withOpacity(0.2)),
-            ),
-            child: ListTile(
-              leading: Icon(
-                Icons.person_outline,
-                color: context.accentColor,
-                size: 20,
-              ),
-              title: Text(
-                'Profil Saya',
-                style: TextStyle(
-                  color: context.accentColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-              onTap: () => Navigator.pop(context),
-            ),
-          ),
-
-          if (currentUserRole.toLowerCase() == 'administrator') ...[
-            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
-            _buildDrawerTile(
-              icon: Icons.settings_outlined,
-              label: 'Setting',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (c) => const SettingsPage()),
-                );
-              },
-            ),
-          ],
-          if (currentUserRole.toLowerCase() == 'administrator') ...[
-            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
-            _buildDrawerTile(
-              icon: Icons.admin_panel_settings_outlined,
-              label: 'Control Center',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (c) => const AdminPanelPage()),
-                );
-              },
-            ),
-          ],
-          const Spacer(),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            height: 1,
-            color: context.borderColor,
-          ),
-          const SizedBox(height: 8),
-          _buildDrawerTile(
-            icon: Icons.logout_outlined,
-            label: 'Keluar Aplikasi',
-            iconColor: const Color(0xFFFF6B6B),
-            labelColor: const Color(0xFFFF6B6B),
-            onTap: () {
-              Navigator.pop(context);
-              _showLogoutDialog();
-            },
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerTile({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Color? iconColor,
-    Color? labelColor,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-      leading: Icon(icon, color: iconColor ?? context.textSecondary, size: 20),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: labelColor ?? context.textPrimary,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      onTap: onTap,
-    );
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (BuildContext dialogContext) {
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                decoration: BoxDecoration(
-                  color: context.cardColor,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: context.borderColor),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.4),
-                      blurRadius: 30,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A1520),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFFFF6B6B).withOpacity(0.3),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.logout_outlined,
-                        color: Color(0xFFFF6B6B),
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      "Keluar Aplikasi?",
-                      style: TextStyle(
-                        color: context.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      "Apakah Anda yakin ingin keluar dari aplikasi EDP NetOps?",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: context.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: context.borderColor),
-                              padding: const EdgeInsets.symmetric(vertical: 13),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: Text(
-                              "Batal",
-                              style: TextStyle(color: context.textSecondary),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => _logout(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF6B6B),
-                              padding: const EdgeInsets.symmetric(vertical: 13),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: const Text(
-                              "Ya, Keluar",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }

@@ -63,6 +63,7 @@ class _FtpPageState extends State<FtpPage> {
         if (Directory(drive).existsSync()) drives.add(drive);
       } catch (_) {}
     }
+    const targetFolder = r'D:\Siaran offline';
     setState(() {
       _availableDrives = drives;
       if (drives.contains("D:\\"))
@@ -70,7 +71,12 @@ class _FtpPageState extends State<FtpPage> {
       else if (drives.isNotEmpty)
         _localPath = drives.first;
     });
-    if (drives.isNotEmpty) _loadLocalDirectory(_localPath);
+    // Langsung buka folder D:\Siaran offline jika ada, fallback ke drive
+    if (Directory(targetFolder).existsSync()) {
+      _loadLocalDirectory(targetFolder);
+    } else if (drives.isNotEmpty) {
+      _loadLocalDirectory(_localPath);
+    }
   }
 
   void _loadLocalDirectory(String path) {
@@ -267,16 +273,13 @@ class _FtpPageState extends State<FtpPage> {
       );
       return;
     }
-    if (_ftpService.isUploading || _ftpService.isDownloading) {
-      CustomSnackBar.show(
-        context,
-        "Masih ada proses transfer yang berjalan.",
-        AppStatusColors.warning,
-      );
-      return;
-    }
     _ftpService
-        .sendPromoFile(widget.targetIp, _remotePath, _selectedLocalFile!)
+        .sendPromoFile(
+          widget.targetIp,
+          _remotePath,
+          _selectedLocalFile!,
+          storeCode: widget.storeCode,
+        )
         .then((_) {
           if (mounted) _loadRemoteDirectory(_remotePath);
         });
@@ -299,20 +302,13 @@ class _FtpPageState extends State<FtpPage> {
       );
       return;
     }
-    if (_ftpService.isUploading || _ftpService.isDownloading) {
-      CustomSnackBar.show(
-        context,
-        "Masih ada proses transfer yang berjalan.",
-        AppStatusColors.warning,
-      );
-      return;
-    }
     _ftpService
         .downloadFile(
           widget.targetIp,
           _remotePath,
           _selectedRemoteFile!.name,
           _localPath,
+          storeCode: widget.storeCode,
         )
         .then((_) {
           if (mounted) _loadLocalDirectory(_localPath);
@@ -1156,9 +1152,22 @@ class _FtpPageState extends State<FtpPage> {
                   style: TextStyle(color: context.textSecondary, fontSize: 10),
                 ),
               ),
-              Text(
-                "Ukuran",
-                style: TextStyle(color: context.textSecondary, fontSize: 10),
+              SizedBox(
+                width: 70,
+                child: Text(
+                  "Ukuran",
+                  textAlign: TextAlign.right,
+                  style: TextStyle(color: context.textSecondary, fontSize: 10),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 82,
+                child: Text(
+                  "Tanggal",
+                  textAlign: TextAlign.right,
+                  style: TextStyle(color: context.textSecondary, fontSize: 10),
+                ),
               ),
             ],
           ),
@@ -1318,15 +1327,27 @@ class _FtpPageState extends State<FtpPage> {
           final isDir = entity is Directory;
           final name = entity.path.split(Platform.pathSeparator).last;
           String size = "";
+          String date = "";
           if (!isDir) {
             try {
+              final f = entity as File;
               size =
-                  "${((entity as File).lengthSync() / (1024 * 1024)).toStringAsFixed(2)} MB";
+                  "${(f.lengthSync() / (1024 * 1024)).toStringAsFixed(2)} MB";
+              final mod = f.lastModifiedSync();
+              date =
+                  "${mod.day.toString().padLeft(2, '0')} ${_monthName(mod.month)} ${mod.year}";
+            } catch (_) {}
+          } else {
+            try {
+              final mod = entity.statSync().modified;
+              date =
+                  "${mod.day.toString().padLeft(2, '0')} ${_monthName(mod.month)} ${mod.year}";
             } catch (_) {}
           }
           return _buildFileRow(
             name,
             size,
+            date: date,
             isFolder: isDir,
             isSelected: _selectedLocalFile?.path == entity.path,
             onTap: () {
@@ -1369,6 +1390,7 @@ class _FtpPageState extends State<FtpPage> {
           return _buildFileRow(
             entry.name,
             size,
+            date: entry.date,
             isFolder: isDir,
             isSelected: _selectedRemoteFile?.name == entry.name,
             onTap: () {
@@ -1387,10 +1409,29 @@ class _FtpPageState extends State<FtpPage> {
     );
   }
 
+  String _monthName(int m) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agt',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
+    ];
+    return months[(m - 1).clamp(0, 11)];
+  }
+
   Widget _buildFileRow(
     String name,
     String size, {
     required bool isFolder,
+    String date = '',
     bool isSelected = false,
     VoidCallback? onTap,
   }) {
@@ -1451,11 +1492,29 @@ class _FtpPageState extends State<FtpPage> {
                   ],
                 ),
               ),
-              if (size.isNotEmpty)
-                Text(
+              // Kolom ukuran — lebar tetap, kosong kalau folder
+              SizedBox(
+                width: 70,
+                child: Text(
                   size,
+                  textAlign: TextAlign.right,
                   style: TextStyle(color: context.textSecondary, fontSize: 10),
                 ),
+              ),
+              const SizedBox(width: 8),
+              // Kolom tanggal — selalu di paling kanan
+              SizedBox(
+                width: 82,
+                child: Text(
+                  date,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: context.textSecondary,
+                    fontSize: 9,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -1467,101 +1526,268 @@ class _FtpPageState extends State<FtpPage> {
   // QUEUE PANEL
   // ══════════════════════════════════════════════════════════════
 
+  Widget _buildHistoryRow(TransferHistoryItem item) {
+    final isUpload = item.type == TransferType.upload;
+    final color = item.success
+        ? (isUpload ? context.successColor : context.accentColor)
+        : context.dangerColor;
+    final t = item.time;
+    final timeStr =
+        "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')} "
+        "${t.day.toString().padLeft(2, '0')} ${_monthName(t.month)}";
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Icon upload/download/error
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: color.withOpacity(0.25)),
+            ),
+            child: Icon(
+              item.success
+                  ? (isUpload ? Icons.upload_rounded : Icons.download_rounded)
+                  : Icons.error_outline_rounded,
+              size: 13,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Nama file + error detail
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.fileName,
+                  style: TextStyle(
+                    color: context.textPrimary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (!item.success)
+                  Text(
+                    item.detail,
+                    style: TextStyle(color: context.dangerColor, fontSize: 9),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Kanan: storeCode badge + ukuran + waktu + tanda sukses/gagal
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Badge kode toko
+                  if (item.storeCode.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: context.accentColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: context.accentColor.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        item.storeCode,
+                        style: TextStyle(
+                          color: context.accentColor,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  // Badge sukses/gagal
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: color.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          item.success
+                              ? Icons.check_rounded
+                              : Icons.close_rounded,
+                          size: 9,
+                          color: color,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          item.success ? "Berhasil" : "Gagal",
+                          style: TextStyle(
+                            color: color,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 3),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (item.detail.isNotEmpty && item.success)
+                    Text(
+                      "${item.detail}  ",
+                      style: TextStyle(
+                        color: context.textSecondary,
+                        fontSize: 9,
+                      ),
+                    ),
+                  Text(
+                    timeStr,
+                    style: TextStyle(
+                      color: context.textSecondary,
+                      fontSize: 9,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQueuePanel() {
     return _buildCard(
       accentLeft: context.successColor,
       child: ListenableBuilder(
         listenable: _ftpService,
         builder: (context, _) {
-          final isActive = _ftpService.isUploading || _ftpService.isDownloading;
-          final isDownload = _ftpService.isDownloading;
-          final progress = _ftpService.uploadProgress;
-          final status = _ftpService.statusMessage;
-          final activeColor = isDownload
-              ? context.accentColor
-              : context.successColor;
+          final jobs = _ftpService.activeJobs;
+          final hasActive = jobs.any((j) => j.isActive);
 
           return Padding(
             padding: const EdgeInsets.fromLTRB(28, 20, 24, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ── Header ──────────────────────────────────────────────
                 Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: (isActive ? activeColor : context.textSecondary)
-                            .withOpacity(0.1),
+                        color:
+                            (hasActive
+                                    ? context.successColor
+                                    : context.textSecondary)
+                                .withOpacity(0.1),
                         borderRadius: BorderRadius.circular(9),
                         border: Border.all(
                           color:
-                              (isActive ? activeColor : context.textSecondary)
+                              (hasActive
+                                      ? context.successColor
+                                      : context.textSecondary)
                                   .withOpacity(0.2),
                         ),
                       ),
                       child: Icon(
-                        isDownload
-                            ? Icons.download_rounded
-                            : isActive
-                            ? Icons.upload_rounded
+                        hasActive
+                            ? Icons.swap_horiz_rounded
                             : Icons.inbox_rounded,
-                        color: isActive ? activeColor : context.textSecondary,
+                        color: hasActive
+                            ? context.successColor
+                            : context.textSecondary,
                         size: 16,
                       ),
                     ),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isDownload
-                                ? "Sedang Download"
-                                : isActive
-                                ? "Sedang Upload"
-                                : "Antrian Transfer",
-                            style: TextStyle(
-                              color: context.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            status.isEmpty
-                                ? "Tidak ada proses berjalan"
-                                : status,
-                            style: TextStyle(
-                              color: context.textSecondary,
-                              fontSize: 12,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                    Text(
+                      hasActive
+                          ? "Proses Transfer (${jobs.where((j) => j.isActive).length})"
+                          : "Antrian Transfer",
+                      style: TextStyle(
+                        color: context.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if (isActive)
-                      Text(
-                        "${(progress * 100).toStringAsFixed(1)}%",
-                        style: TextStyle(
-                          color: activeColor,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
                   ],
                 ),
-                if (isActive) ...[
+
+                // ── Active Jobs ──────────────────────────────────────────
+                if (jobs.isNotEmpty) ...[
                   const SizedBox(height: 14),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: LinearProgressIndicator(
-                      value: progress > 0 ? progress : null,
-                      backgroundColor: context.borderColor,
-                      color: activeColor,
-                      minHeight: 6,
+                  ...jobs.map((job) => _buildJobRow(job)),
+                ] else ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    "Tidak ada proses berjalan",
+                    style: TextStyle(
+                      color: context.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+
+                // ── Riwayat ──────────────────────────────────────────────
+                if (_ftpService.history.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Divider(
+                    height: 1,
+                    color: context.borderColor.withOpacity(0.5),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.history_rounded,
+                        size: 12,
+                        color: context.textSecondary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "RIWAYAT TRANSFER",
+                        style: TextStyle(
+                          color: context.textSecondary,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 240),
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: _ftpService.history.length,
+                      itemBuilder: (_, i) =>
+                          _buildHistoryRow(_ftpService.history[i]),
                     ),
                   ),
                 ],
@@ -1571,5 +1797,296 @@ class _FtpPageState extends State<FtpPage> {
         },
       ),
     );
+  }
+
+  Widget _buildJobRow(TransferJob job) {
+    final isUpload = job.type == TransferType.upload;
+    final color = job.status == TransferJobStatus.failed
+        ? context.dangerColor
+        : job.status == TransferJobStatus.cancelled
+        ? context.warningColor
+        : isUpload
+        ? context.successColor
+        : context.accentColor;
+
+    final isDone = job.status == TransferJobStatus.done;
+    final isFailed = job.status == TransferJobStatus.failed;
+    final isCancelled = job.status == TransferJobStatus.cancelled;
+
+    return ListenableBuilder(
+      listenable: job,
+      builder: (context, _) => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Icon status
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(color: color.withOpacity(0.25)),
+                  ),
+                  child: Icon(
+                    isDone
+                        ? Icons.check_rounded
+                        : isCancelled
+                        ? Icons.block_rounded
+                        : isFailed
+                        ? Icons.error_outline_rounded
+                        : isUpload
+                        ? Icons.upload_rounded
+                        : Icons.download_rounded,
+                    size: 14,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Nama file + kode toko
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          if (job.storeCode.isNotEmpty) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: context.accentColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: context.accentColor.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Text(
+                                job.storeCode,
+                                style: TextStyle(
+                                  color: context.accentColor,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Expanded(
+                            child: Text(
+                              job.fileName,
+                              style: TextStyle(
+                                color: context.textPrimary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        job.statusText,
+                        style: TextStyle(
+                          color: context.textSecondary,
+                          fontSize: 10,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Persentase + tombol cancel
+                if (job.isActive) ...[
+                  Text(
+                    "${(job.progress * 100).toStringAsFixed(1)}%",
+                    style: TextStyle(
+                      color: color,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Tombol Cancel
+                  Tooltip(
+                    message: "Batalkan transfer",
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: job.cancelRequested
+                            ? null
+                            : () => _confirmCancelJob(job),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: context.dangerColor.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: context.dangerColor.withOpacity(0.25),
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.close_rounded,
+                            size: 12,
+                            color: job.cancelRequested
+                                ? context.textSecondary
+                                : context.dangerColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            // Progress bar
+            if (job.isActive) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: job.progress > 0 ? job.progress : null,
+                  backgroundColor: context.borderColor,
+                  color: color,
+                  minHeight: 5,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmCancelJob(TransferJob job) async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          barrierColor: Colors.black54,
+          builder: (_) => Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 40,
+              vertical: 24,
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 380),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: context.cardColor,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: context.borderColor),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: context.warningColor.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.cancel_outlined,
+                        color: context.warningColor,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "Batalkan Transfer?",
+                      style: TextStyle(
+                        color: context.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      "Transfer yang sudah terkirim tidak bisa dikembalikan.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: context.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: context.surfaceColor,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: context.borderColor),
+                      ),
+                      child: Text(
+                        job.fileName,
+                        style: TextStyle(
+                          color: context.accentColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: context.borderColor),
+                              foregroundColor: context.textSecondary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text("Lanjutkan"),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: context.warningColor,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text(
+                              "Batalkan",
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ) ??
+        false;
+
+    if (confirmed) _ftpService.cancelJob(job.id);
   }
 }

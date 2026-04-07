@@ -130,6 +130,40 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
     }
   }
 
+  Future<void> _launchTelnet(String ip) async {
+    try {
+      await Process.start('cmd.exe', [
+        '/c',
+        'start',
+        'cmd.exe',
+        '/k',
+        'telnet $ip 1953',
+      ], runInShell: true);
+    } catch (e) {
+      if (mounted) {
+        _showErrorDialog(
+          "Telnet Gagal",
+          "Tidak dapat membuka Telnet ke \$ip:1953\n\nPastikan fitur Telnet Windows sudah diaktifkan.",
+        );
+      }
+    }
+  }
+
+  /// True jika koneksi utama adalah VSAT (tanpa backup / single)
+  bool get _isVsatOnly {
+    final main = (_currentStore.connectionType ?? '').toUpperCase();
+    final backup = (_currentStore.connectionBackup ?? '').toUpperCase();
+    return main.contains('VSAT') && !backup.contains('VSAT');
+  }
+
+  /// True jika toko pakai dual koneksi yang melibatkan VSAT (di backup)
+  bool get _isVsatDual {
+    final backup = (_currentStore.connectionBackup ?? '').toUpperCase();
+    final main = (_currentStore.connectionType ?? '').toUpperCase();
+    return backup.contains('VSAT') ||
+        (main.contains('VSAT') && backup.isNotEmpty);
+  }
+
   Future<void> _launchVnc(String ip) async {
     final String vncPath = r'D:\Edp NetOps\vncviewer.exe';
 
@@ -801,12 +835,14 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
             "Kode Toko",
             _currentStore.storeCode,
             isFirst: true,
+            copyable: true,
           ),
           _buildDivider(),
           _buildInfoRow(
             Icons.badge_outlined,
             "Nama Toko",
             _currentStore.storeName,
+            copyable: true,
           ),
           _buildDivider(),
           _buildInfoRow(
@@ -858,14 +894,40 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
             _currentStore.ipGateway,
             isGateway: true,
             isFirst: true,
+            // Telnet di kiri WINBOX — hanya untuk toko VSAT saja (bukan dual)
+            prependButton:
+                (!_isMobile &&
+                    _isVsatOnly &&
+                    _currentStore.ipGateway?.isNotEmpty == true)
+                ? _buildMiniButton(
+                    label: "TELNET",
+                    icon: Icons.terminal_rounded,
+                    color: context.warningColor,
+                    onTap: () => _launchTelnet(_currentStore.ipGateway!),
+                  )
+                : null,
           ),
-          _buildDivider(),
-          _buildIpRow(
-            context,
-            "IP VSAT",
-            _currentStore.ipVsat,
-            icon: Icons.satellite_alt_outlined,
-          ),
+          if (_currentStore.ipVsat?.isNotEmpty == true &&
+              _currentStore.ipVsat != '-') ...[
+            _buildDivider(),
+            _buildIpRow(
+              context,
+              "IP VSAT",
+              _currentStore.ipVsat,
+              icon: Icons.satellite_alt_outlined,
+              customButton:
+                  (!_isMobile &&
+                      _isVsatDual &&
+                      _currentStore.ipVsat?.isNotEmpty == true)
+                  ? _buildMiniButton(
+                      label: "TELNET",
+                      icon: Icons.terminal_rounded,
+                      color: context.warningColor,
+                      onTap: () => _launchTelnet(_currentStore.ipVsat!),
+                    )
+                  : null,
+            ),
+          ],
           _buildDivider(),
           _buildIpRow(
             context,
@@ -893,51 +955,45 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                 : null,
           ),
 
-          // STATION / KASIR
-          _buildSubDivider(),
-          _buildSubHeader(
-            "STATION / KASIR",
-            Icons.point_of_sale_outlined,
-            const Color(0xFF00C9A7),
-          ),
-          _buildIpRow(
-            context,
-            "Station 1",
-            _currentStore.ipStation1,
-            showVnc: true,
-            icon: Icons.computer_outlined,
-          ),
-          _buildDivider(),
-          _buildIpRow(
-            context,
-            "Station 2",
-            _currentStore.ipStation2,
-            showVnc: true,
-            icon: Icons.computer_outlined,
-          ),
-          _buildDivider(),
-          _buildIpRow(
-            context,
-            "Station 3",
-            _currentStore.ipStation3,
-            showVnc: true,
-            icon: Icons.computer_outlined,
-          ),
-          _buildDivider(),
-          _buildIpRow(
-            context,
-            "Station 4",
-            _currentStore.ipStation4,
-            showVnc: true,
-            icon: Icons.computer_outlined,
-          ),
-          _buildDivider(),
-          _buildIpRow(
-            context,
-            "Station 5",
-            _currentStore.ipStation5,
-            showVnc: true,
-            icon: Icons.computer_outlined,
+          // STATION / KASIR — hanya tampil jika ada IP
+          Builder(
+            builder: (context) {
+              final stations =
+                  <(String, String?)>[
+                        ('Station 1', _currentStore.ipStation1),
+                        ('Station 2', _currentStore.ipStation2),
+                        ('Station 3', _currentStore.ipStation3),
+                        ('Station 4', _currentStore.ipStation4),
+                        ('Station 5', _currentStore.ipStation5),
+                      ]
+                      .where(
+                        (s) => s.$2 != null && s.$2!.isNotEmpty && s.$2 != '-',
+                      )
+                      .toList();
+
+              if (stations.isEmpty) return const SizedBox.shrink();
+
+              return Column(
+                children: [
+                  _buildSubDivider(),
+                  _buildSubHeader(
+                    "STATION / KASIR",
+                    Icons.point_of_sale_outlined,
+                    const Color(0xFF00C9A7),
+                  ),
+                  for (int i = 0; i < stations.length; i++) ...[
+                    if (i > 0) _buildDivider(),
+                    _buildIpRow(
+                      context,
+                      stations[i].$1,
+                      stations[i].$2,
+                      showVnc: true,
+                      icon: Icons.computer_outlined,
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
 
           // PERANGKAT LAIN
@@ -956,8 +1012,9 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                 _currentStore.ipStb,
                 icon: Icons.tv_outlined,
                 customButton:
-                    _currentStore.ipStb != null &&
-                        _currentStore.ipStb!.isNotEmpty
+                    (!_isMobile &&
+                        _currentStore.ipStb != null &&
+                        _currentStore.ipStb!.isNotEmpty)
                     ? _buildMiniButton(
                         label: "FTP",
                         icon: Icons.upload_file,
@@ -977,88 +1034,116 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
                       )
                     : null,
               ),
-              ListenableBuilder(
-                listenable: FtpService(),
-                builder: (context, child) {
-                  final ftpService = FtpService();
-                  final isActive =
-                      (ftpService.isUploading || ftpService.isDownloading) &&
-                      ftpService.targetIp == _currentStore.ipStb;
+              if (!_isMobile)
+                ListenableBuilder(
+                  listenable: FtpService(),
+                  builder: (context, child) {
+                    final ftpService = FtpService();
+                    final activeJob = ftpService.activeJobs
+                        .where(
+                          (j) =>
+                              j.isActive && j.targetIp == _currentStore.ipStb,
+                        )
+                        .firstOrNull;
 
-                  if (isActive) {
-                    return Padding(
-                      padding: const EdgeInsets.only(
-                        left: 45.0,
-                        right: 16.0,
-                        bottom: 12.0,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          LinearProgressIndicator(
-                            value: ftpService.uploadProgress > 0
-                                ? ftpService.uploadProgress
-                                : null,
-                            backgroundColor: context.surfaceColor,
-                            color: context.warningColor,
-                            minHeight: 2.5,
+                    if (activeJob != null) {
+                      return ListenableBuilder(
+                        listenable: activeJob,
+                        builder: (context, _) => Padding(
+                          padding: const EdgeInsets.only(
+                            left: 45.0,
+                            right: 16.0,
+                            bottom: 12.0,
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            ftpService.statusMessage,
-                            style: TextStyle(
-                              color: context.warningColor,
-                              fontSize: 10,
-                              fontStyle: FontStyle.italic,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              LinearProgressIndicator(
+                                value: activeJob.progress > 0
+                                    ? activeJob.progress
+                                    : null,
+                                backgroundColor: context.surfaceColor,
+                                color: context.warningColor,
+                                minHeight: 2.5,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                activeJob.statusText,
+                                style: TextStyle(
+                                  color: context.warningColor,
+                                  fontSize: 10,
+                                  fontStyle: FontStyle.italic,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
             ],
           ),
-          _buildDivider(),
-          _buildIpRow(
-            context,
-            "IP iKiosk",
-            _currentStore.ipIkiosk,
-            icon: Icons.touch_app_outlined,
-          ),
-          _buildDivider(),
-          _buildIpRow(
-            context,
-            "Timbangan",
-            _currentStore.ipTimbangan,
-            icon: Icons.scale_outlined,
-          ),
+          if (_currentStore.ipIkiosk?.isNotEmpty == true &&
+              _currentStore.ipIkiosk != '-') ...[
+            _buildDivider(),
+            _buildIpRow(
+              context,
+              "IP iKiosk",
+              _currentStore.ipIkiosk,
+              icon: Icons.touch_app_outlined,
+            ),
+          ],
+          if (_currentStore.ipTimbangan?.isNotEmpty == true &&
+              _currentStore.ipTimbangan != '-') ...[
+            _buildDivider(),
+            _buildIpRow(
+              context,
+              "Timbangan",
+              _currentStore.ipTimbangan,
+              icon: Icons.scale_outlined,
+            ),
+          ],
 
-          // CCTV
-          _buildSubDivider(),
-          _buildSubHeader(
-            "CCTV / NVR",
-            Icons.videocam_outlined,
-            const Color(0xFFFF6B6B),
-          ),
-          _buildIpRow(
-            context,
-            "CCTV 1",
-            _currentStore.ipCctv1,
-            showCctv: true,
-            icon: Icons.videocam_outlined,
-          ),
-          _buildDivider(),
-          _buildIpRow(
-            context,
-            "CCTV 2",
-            _currentStore.ipCctv2,
-            showCctv: true,
-            icon: Icons.videocam_outlined,
-            isLast: true,
+          // CCTV — hanya tampil jika ada IP
+          Builder(
+            builder: (context) {
+              final cctvs =
+                  <(String, String?)>[
+                        ('CCTV 1', _currentStore.ipCctv1),
+                        ('CCTV 2', _currentStore.ipCctv2),
+                      ]
+                      .where(
+                        (c) => c.$2 != null && c.$2!.isNotEmpty && c.$2 != '-',
+                      )
+                      .toList();
+
+              if (cctvs.isEmpty) return const SizedBox.shrink();
+
+              return Column(
+                children: [
+                  _buildSubDivider(),
+                  _buildSubHeader(
+                    "CCTV / NVR",
+                    Icons.videocam_outlined,
+                    const Color(0xFFFF6B6B),
+                  ),
+                  for (int i = 0; i < cctvs.length; i++) ...[
+                    if (i > 0) _buildDivider(),
+                    _buildIpRow(
+                      context,
+                      cctvs[i].$1,
+                      cctvs[i].$2,
+                      showCctv: true,
+                      icon: Icons.videocam_outlined,
+                      isLast: i == cctvs.length - 1,
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -1126,7 +1211,47 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
     String value, {
     bool isFirst = false,
     bool isLast = false,
+    bool copyable = false,
   }) {
+    final valueWidget = copyable
+        ? GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: value));
+              CustomSnackBar.show(
+                context,
+                '$label disalin!',
+                const Color(0xFF00D4FF),
+              );
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: context.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Icon(
+                  Icons.copy_outlined,
+                  size: 12,
+                  color: context.textSecondary.withOpacity(0.45),
+                ),
+              ],
+            ),
+          )
+        : Text(
+            value,
+            style: TextStyle(
+              color: context.textPrimary,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          );
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       child: Row(
@@ -1139,14 +1264,7 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
               style: TextStyle(color: context.textSecondary, fontSize: 12),
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              color: context.textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-            ),
-          ),
+          valueWidget,
         ],
       ),
     );
@@ -1162,6 +1280,7 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
     bool showPing = true,
     IconData icon = Icons.computer_outlined,
     Widget? customButton,
+    Widget? prependButton, // ditampilkan sebelum WINBOX
     bool isFirst = false,
     bool isLast = false,
   }) {
@@ -1170,7 +1289,8 @@ class _StoreDetailPageState extends State<StoreDetailPage> {
     // Kumpulkan tombol yang aktif
     final List<Widget> actionButtons = [
       if (!_isMobile) ...[
-        if (hasValue && isGateway && _isAdminOrAbove)
+        if (hasValue && prependButton != null) prependButton,
+        if (hasValue && isGateway && _isAdminOrAbove && !_isVsatOnly)
           _buildMiniButton(
             label: "WINBOX",
             color: context.accentColor,

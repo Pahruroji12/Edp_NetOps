@@ -264,11 +264,13 @@ class FtpEntry {
   final String name;
   final bool isDirectory;
   final int size;
+  final String date; // contoh: "09 Mar 2026"
 
   const FtpEntry({
     required this.name,
     required this.isDirectory,
     required this.size,
+    this.date = '',
   });
 
   /// Parse baris LIST Unix-style:
@@ -283,7 +285,11 @@ class FtpEntry {
       final name = parts.sublist(8).join(' ');
       if (name == '.' || name == '..') return null;
       final size = int.tryParse(parts[4]) ?? 0;
-      return FtpEntry(name: name, isDirectory: isDir, size: size);
+      // parts[5]=bulan, parts[6]=tanggal, parts[7]=tahun/jam
+      final date = parts.length >= 8
+          ? '${parts[6].padLeft(2, '0')} ${parts[5]} ${parts[7]}'
+          : '';
+      return FtpEntry(name: name, isDirectory: isDir, size: size, date: date);
     } catch (_) {
       return null;
     }

@@ -1,19 +1,14 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/store_model.dart';
 import 'store_detail_page.dart';
 import 'store_form_page.dart';
-import '../auth/login_page.dart';
 import '../../utils/custom_snackbar.dart';
-import '../profile/profile_page.dart';
-import '../dashboard/dashboard_page.dart';
 import '../../utils/app_colors.dart';
-import '../settings/settings_page.dart';
-import '../../utils/activity_logger.dart';
-import '../profile/admin_panel_page.dart';
 import '../../utils/export_helper.dart';
-import '../store_management/ping_page.dart';
+import '../auth/login_page.dart'; // currentUserRole, currentUserName, currentUserNik
+import '../../widgets/main_layout.dart'; // untuk MainLayout.scaffoldKey
 
 class StoreListPage extends StatefulWidget {
   const StoreListPage({super.key});
@@ -23,8 +18,6 @@ class StoreListPage extends StatefulWidget {
 }
 
 class _StoreListPageState extends State<StoreListPage> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
   List<StoreModel> _allStores = [];
   List<StoreModel> _filteredStores = [];
   bool _isLoading = true;
@@ -137,48 +130,14 @@ class _StoreListPageState extends State<StoreListPage> {
   }
 
   // ========================================== //
-  // LOGOUT FUNCTION //
+  // _logout & drawer sudah dipindah ke AppSidebar
   // ========================================== //
-  Future<void> _logout(BuildContext context) async {
-    try {
-      // 1. Matikan lampu status jadi Offline
-      await ActivityLogger.updateOnlineStatus(false);
-
-      // 2. Catat log bahwa user ini keluar dari aplikasi
-      await ActivityLogger.logAction(
-        actionType: "LOGOUT",
-        description: "Pengguna keluar dari sistem",
-      );
-
-      // 3. Hapus token sesi dengan aman menggunakan Supabase Auth
-      await Supabase.instance.client.auth.signOut();
-
-      // 4. Bersihkan memori variabel global
-      currentUserNik = '';
-      currentUserName = '';
-      currentUserRole = '';
-
-      // 5. Arahkan kembali ke halaman Login secara total (menghapus riwayat 'back')
-      if (context.mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (c) => const LoginPage()),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        CustomSnackBar.show(context, "Gagal logout: $e", Colors.red);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey,
       backgroundColor: context.primaryColor,
-      drawer: _buildDrawer(),
+      // Tidak ada drawer/sidebar — ditangani MainLayout (ShellRoute)
       floatingActionButton: _isAdminOrAbove ? _buildFab() : null,
       body: Column(
         children: [
@@ -260,6 +219,7 @@ class _StoreListPageState extends State<StoreListPage> {
   // HEADER — Responsif
   // ==========================================
   Widget _buildHeader() {
+    final isDesktop = MediaQuery.of(context).size.width >= 850;
     return Container(
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top + 12,
@@ -281,17 +241,20 @@ class _StoreListPageState extends State<StoreListPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Baris atas: hamburger + judul + spacer + badge + refresh ──
           LayoutBuilder(
             builder: (_, constraints) {
               final isWide = constraints.maxWidth >= 480;
               return Row(
                 children: [
-                  _buildIconButton(
-                    icon: Icons.menu_rounded,
-                    onTap: () => _scaffoldKey.currentState?.openDrawer(),
-                  ),
-                  const SizedBox(width: 14),
+                  // Hamburger hanya di mobile — buka drawer MainLayout
+                  if (!isDesktop) ...[
+                    _buildIconButton(
+                      icon: Icons.menu_rounded,
+                      onTap: () =>
+                          MainLayout.scaffoldKey.currentState?.openDrawer(),
+                    ),
+                    const SizedBox(width: 14),
+                  ],
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -334,7 +297,6 @@ class _StoreListPageState extends State<StoreListPage> {
                     ],
                   ),
                   const Spacer(),
-                  // Badge total hanya di layar lebar
                   if (isWide) ...[
                     _buildStatBadge(
                       "${_allStores.length}",
@@ -351,12 +313,8 @@ class _StoreListPageState extends State<StoreListPage> {
             },
           ),
           const SizedBox(height: 14),
-
-          // ── Search bar ──
           _buildSearchBar(),
           const SizedBox(height: 12),
-
-          // ── Filter chips — selalu horizontal scroll ──
           _buildFilterChips(),
         ],
       ),
@@ -816,7 +774,7 @@ class _StoreListPageState extends State<StoreListPage> {
           ),
           child: Stack(
             children: [
-              // Radial glow kanan atas — warna sesuai koneksi
+              // Radial glow kanan atas
               Positioned(
                 top: -20,
                 right: -20,
@@ -857,7 +815,7 @@ class _StoreListPageState extends State<StoreListPage> {
                 padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
                 child: Row(
                   children: [
-                    // Avatar dengan warna koneksi
+                    // Avatar
                     Container(
                       width: 44,
                       height: 44,
@@ -881,13 +839,13 @@ class _StoreListPageState extends State<StoreListPage> {
                     ),
                     const SizedBox(width: 12),
 
-                    // Info
+                    // Info Toko
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // Kode badge + Nama
+                          // ── BARIS KODE TOKO & NAMA TOKO ──
                           Row(
                             children: [
                               Container(
@@ -913,7 +871,9 @@ class _StoreListPageState extends State<StoreListPage> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Expanded(
+
+                              // Flexible agar teks yang kepanjangan tetap dipotong (...)
+                              Flexible(
                                 child: Text(
                                   store.storeName,
                                   style: TextStyle(
@@ -925,11 +885,43 @@ class _StoreListPageState extends State<StoreListPage> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+
+                              const SizedBox(width: 4),
+                              Material(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(6),
+                                  onTap: () {
+                                    final String textToCopy =
+                                        "${store.storeCode} - ${store.storeName}";
+                                    Clipboard.setData(
+                                      ClipboardData(text: textToCopy),
+                                    );
+
+                                    CustomSnackBar.show(
+                                      context,
+                                      'Info toko disalin!',
+                                      cardAccent,
+                                    );
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4.0),
+                                    child: Icon(
+                                      Icons.content_copy_rounded,
+                                      size: 13,
+                                      color: context.textSecondary.withOpacity(
+                                        0.6,
+                                      ), // Warna kalem agar tidak nabrak dengan panah
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 6),
 
-                          // IP Gateway
+                          // ── IP GATEWAY ──
                           Row(
                             children: [
                               Icon(
@@ -951,11 +943,42 @@ class _StoreListPageState extends State<StoreListPage> {
                                   letterSpacing: 0.5,
                                 ),
                               ),
+                              if (store.ipGateway?.isNotEmpty == true) ...[
+                                const SizedBox(width: 6),
+                                Material(
+                                  color: Colors.transparent,
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(4),
+                                    onTap: () {
+                                      // Menyalin hanya teks IP Gateway
+                                      Clipboard.setData(
+                                        ClipboardData(text: store.ipGateway!),
+                                      );
+
+                                      CustomSnackBar.show(
+                                        context,
+                                        'IP Gateway disalin!',
+                                        cardAccent, // Mengikuti warna tema koneksi
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(3.0),
+                                      child: Icon(
+                                        Icons.content_copy_rounded,
+                                        size: 11,
+                                        color: context.textSecondary
+                                            .withOpacity(0.6),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 7),
 
-                          // Connection badges
+                          // ── CONNECTION BADGES ──
                           Wrap(
                             spacing: 5,
                             runSpacing: 3,
@@ -969,7 +992,7 @@ class _StoreListPageState extends State<StoreListPage> {
                       ),
                     ),
 
-                    // Chevron styled
+                    // ── CHEVRON KEMBALI KE POSISI SEMULA ──
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
@@ -1012,487 +1035,6 @@ class _StoreListPageState extends State<StoreListPage> {
           letterSpacing: 0.5,
         ),
       ),
-    );
-  }
-
-  // ==========================================
-  // DRAWER
-  // ==========================================
-  Widget _buildDrawer() {
-    // Warna & icon sesuai role
-    Color roleAccentD;
-    IconData roleIconD;
-    switch (currentUserRole.toLowerCase()) {
-      case 'administrator':
-        roleAccentD = const Color(0xFFFF6B6B);
-        roleIconD = Icons.admin_panel_settings_outlined;
-        break;
-      case 'admin':
-        roleAccentD = const Color(0xFFFFB347);
-        roleIconD = Icons.manage_accounts_outlined;
-        break;
-      default:
-        roleAccentD = context.accentColor;
-        roleIconD = Icons.person_outline;
-    }
-
-    // Inisial 2 huruf
-    final nameParts = currentUserName.trim().split(' ');
-    final initialsD = nameParts.length >= 2
-        ? '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase()
-        : currentUserName.isNotEmpty
-        ? currentUserName[0].toUpperCase()
-        : 'U';
-
-    return Drawer(
-      backgroundColor: context.surfaceColor,
-      child: Column(
-        children: [
-          // ── HEADER DRAWER ─────────────────────────────────
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [roleAccentD.withOpacity(0.13), context.cardColor],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border(bottom: BorderSide(color: context.borderColor)),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Avatar + status online
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    roleAccentD,
-                                    roleAccentD.withOpacity(0.55),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(18),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: roleAccentD.withOpacity(0.35),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: Text(
-                                  initialsD,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              right: -5,
-                              bottom: -5,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: context.surfaceColor,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: roleAccentD.withOpacity(0.5),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Icon(
-                                  roleIconD,
-                                  size: 12,
-                                  color: roleAccentD,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF00E676).withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: const Color(0xFF00E676).withOpacity(0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF00E676),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(
-                                        0xFF00E676,
-                                      ).withOpacity(0.7),
-                                      blurRadius: 5,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              const Text(
-                                'Online',
-                                style: TextStyle(
-                                  color: Color(0xFF00E676),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Nama
-                    Text(
-                      currentUserName.isNotEmpty ? currentUserName : 'User',
-                      style: TextStyle(
-                        color: context.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-
-                    const SizedBox(height: 5),
-
-                    // NIK monospace
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.badge_outlined,
-                          size: 12,
-                          color: context.textSecondary.withOpacity(0.6),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          currentUserNik,
-                          style: TextStyle(
-                            color: context.textSecondary,
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Role badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: roleAccentD.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: roleAccentD.withOpacity(0.35),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(roleIconD, size: 11, color: roleAccentD),
-                          const SizedBox(width: 6),
-                          Text(
-                            currentUserRole.toUpperCase(),
-                            style: TextStyle(
-                              color: roleAccentD,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildDrawerTile(
-            icon: Icons.dashboard_outlined,
-            label: 'Dashboard',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (c) => const DashboardPage()),
-              );
-            },
-          ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-            decoration: BoxDecoration(
-              color: context.accentColor.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: context.accentColor.withOpacity(0.2)),
-            ),
-            child: ListTile(
-              leading: Icon(
-                Icons.store_outlined,
-                color: context.accentColor,
-                size: 20,
-              ),
-              title: Text(
-                'Data Toko',
-                style: TextStyle(
-                  color: context.accentColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-              ),
-              onTap: () => Navigator.pop(context),
-            ),
-          ),
-
-          if (Platform.isWindows)
-            _buildDrawerTile(
-              icon: Icons.network_check,
-              label: 'Ping Scanner',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const PingPage()),
-                );
-              },
-            ),
-
-          _buildDrawerTile(
-            icon: Icons.person_outline,
-            label: 'Profil Saya',
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => const ProfilePage()),
-              );
-            },
-          ),
-          if (currentUserRole.toLowerCase() == 'administrator') ...[
-            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
-            _buildDrawerTile(
-              icon: Icons.settings_outlined,
-              label: 'Setting',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (c) => const SettingsPage()),
-                );
-              },
-            ),
-          ],
-          if (currentUserRole.toLowerCase() == 'administrator') ...[
-            // Menu Setting hanya akan dirender/digambar jika rolenya administrator
-            _buildDrawerTile(
-              icon: Icons.admin_panel_settings_outlined,
-              label: 'Control Center',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (c) => const AdminPanelPage()),
-                );
-              },
-            ),
-          ],
-
-          const Spacer(),
-          Container(
-            height: 1,
-            margin: const EdgeInsets.symmetric(horizontal: 12),
-            color: context.borderColor,
-          ),
-          const SizedBox(height: 8),
-          _buildDrawerTile(
-            icon: Icons.logout_outlined,
-            label: 'Keluar Aplikasi',
-            iconColor: const Color(0xFFFF6B6B),
-            labelColor: const Color(0xFFFF6B6B),
-            onTap: () {
-              Navigator.pop(context);
-              _showLogoutDialog();
-            },
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerTile({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Color? iconColor,
-    Color? labelColor,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-      leading: Icon(icon, color: iconColor ?? context.textSecondary, size: 20),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: labelColor ?? context.textPrimary,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      onTap: onTap,
-    );
-  }
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (BuildContext dialogContext) {
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                decoration: BoxDecoration(
-                  color: context.cardColor,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: context.borderColor),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.4),
-                      blurRadius: 30,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2A1520),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: const Color(0xFFFF6B6B).withOpacity(0.3),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.logout_outlined,
-                        color: Color(0xFFFF6B6B),
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      "Keluar Aplikasi?",
-                      style: TextStyle(
-                        color: context.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      "Apakah Anda yakin ingin keluar dari aplikasi EDP NetOps?",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: context.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => Navigator.pop(dialogContext),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: context.borderColor),
-                              padding: const EdgeInsets.symmetric(vertical: 13),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: Text(
-                              "Batal",
-                              style: TextStyle(color: context.textSecondary),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => _logout(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF6B6B),
-                              padding: const EdgeInsets.symmetric(vertical: 13),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: const Text(
-                              "Ya, Keluar",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
