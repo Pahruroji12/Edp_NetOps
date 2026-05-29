@@ -480,7 +480,7 @@ Proyek perangkat lunak ini dirilis secara **Private** dan eksklusif untuk kebutu
 
 <div align="center">
 
-**Pahru Roji**  
+**Pahruroji**  
 *Senior IT Support & Network Operations — Departemen EDP*
 
 [![GitHub](https://img.shields.io/badge/GitHub-Pahruroji12-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/Pahruroji12)
