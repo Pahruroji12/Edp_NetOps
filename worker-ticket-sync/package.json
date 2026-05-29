@@ -1,0 +1,24 @@
+{
+  "name": "worker-ticket-sync",
+  "version": "1.0.0",
+  "description": "EDP NetOps Background Worker - IMAP Ticket Sync",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "build": "tsc",
+    "serve": "node dist/main.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.8",
+    "dotenv": "^16.4.5",
+    "imapflow": "^1.0.155",
+    "mailparser": "^3.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/mailparser": "^3.4.4",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
