@@ -207,7 +207,6 @@ edp_netops/
     │   └── types.ts                 # Definisi tipe data & antarmuka TypeScript
     ├── package.json                 # Skrip NPM & dependensi Node.js worker
     ├── tsconfig.json                # Konfigurasi kompilasi TypeScript Compiler
-    └── .env.example                 # Contoh templat konfigurasi variabel worker
 ```
 
 ---
