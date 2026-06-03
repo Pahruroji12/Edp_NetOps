@@ -66,6 +66,7 @@ Aplikasi klien EDP NetOps menerapkan pola **Feature-First** yang dipadukan denga
 ### Struktur Folder Utama
 
 ```text
+<<<<<<< HEAD
 lib/
 ├── app/                  # Konfigurasi rute (GoRouter) dan root MaterialApp
 ├── layout/               # Kerangka tampilan utama, sidebar navigasi, dan base layout
@@ -78,6 +79,50 @@ lib/
     ├── settings/         # Konfigurasi SMTP email, path eksternal tools, & ganti tema
     ├── store/            # Pengelolaan data toko (CRUD data teknis jaringan toko)
     └── ticket/           # Pengelolaan log tiket gangguan, statistik, dan eskalasi email
+=======
+edp_netops/
+├── assets/                          # Aset gambar & logo aplikasi
+│   └── logo.png                     # Logo utama EDP NetOps
+├── android/                         # Konfigurasi platform Android
+├── ios/                             # Konfigurasi platform iOS
+├── web/                             # Konfigurasi platform Flutter Web
+├── windows/                         # Konfigurasi native platform Windows Desktop
+├── lib/                             # Kode Sumber Flutter Client
+│   ├── main.dart                    # Entry point aplikasi (Inisialisasi dasar saja)
+│   ├── app/                         # Konfigurasi aplikasi tingkat atas (App Widget, Router)
+│   │   ├── app.dart                 # Root MaterialApp.router & Setup Tema
+│   │   └── app_router.dart          # Konfigurasi rute GoRouter & AuthGuard
+│   ├── core/                        # Modul pendukung global (Shared Core)
+│   │   ├── constants/               # Konstanta global aplikasi
+│   │   ├── env/                     # Loader berkas konfigurasi .env
+│   │   ├── guards/                  # Proteksi akses rute berdasarkan izin
+│   │   ├── theme/                   # Pengaturan warna & ThemeData (Dark/Light)
+│   │   ├── utils/                   # Helper enkripsi, export Excel, dll.
+│   │   └── widgets/                 # Reusable widget seperti Custom Snackbar, dll.
+│   ├── layout/                      # Tata letak antarmuka utama (Sidebar & Base Layout)
+│   └── features/                    # Direktori fitur utama aplikasi (Clean Architecture)
+│       ├── auth/                    # Modul Login, Autentikasi, & State Akun
+│       ├── dashboard/               # Modul Dasbor Utama & List Toko Ringkas
+│       ├── network_tools/           # Modul Alat Jaringan (Ping Scanner, FTP, Mikrotik WDCP)
+│       ├── store/                   # Modul Manajemen & CRUD Data Toko Lengkap
+│       ├── ticket/                  # Modul Pencatatan Tiket & Email Provider
+│       ├── profile/                 # Halaman detail akun & admin panel control
+│       └── settings/                # Halaman pengaturan SMTP & path software remote
+│
+└── worker-ticket-sync/              # Kode Sumber Background IMAP Sync Worker
+    ├── src/                         # Berkas Utama TypeScript
+    │   ├── main.ts                  # Entry point scheduler & inisialisasi server worker
+    │   ├── config.ts                # Loader parameter lingkungan .env worker
+    │   ├── server.ts                # Server HTTP minimal untuk REST monitoring & status
+    │   ├── imapClient.ts            # Client penghubung ke Mailbox IMAP
+    │   ├── supabaseClient.ts        # Client koneksi terpusat ke database Supabase
+    │   ├── syncTicketEmail.ts       # Mesin logika sinkronisasi email-ke-tabel
+    │   ├── ticketParser.ts          # Algoritma ekstraksi kode toko & nomor tiket
+    │   ├── workerStatusService.ts   # Updater detak jantung status worker ke database
+    │   └── types.ts                 # Definisi tipe data & antarmuka TypeScript
+    ├── package.json                 # Skrip NPM & dependensi Node.js worker
+    ├── tsconfig.json                # Konfigurasi kompilasi TypeScript Compiler
+>>>>>>> 1b8c1859b26f4667b53e7d6f8d34cd4cc3854a58
 ```
 
 * **Presentation Layer**: Terdiri dari berkas *Page*, *Widget*, dan *Controller* (menggunakan pola `ChangeNotifier` untuk manajemen state).
@@ -345,8 +390,14 @@ edp_netops/
 
 ## 👨‍💻 Author
 
-* **Pahruroji** - *Senior IT Support & Network Operations — Departemen EDP*
-* GitHub: [@Pahruroji12](https://github.com/Pahruroji12)
+<div align="center">
+
+**Pahruroji**  
+*Senior IT Support & Network Operations — Departemen EDP*
+
+[![GitHub](https://img.shields.io/badge/GitHub-Pahruroji12-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/Pahruroji12)
+
+</div>
 
 ---
 
