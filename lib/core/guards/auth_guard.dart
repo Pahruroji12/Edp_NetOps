@@ -58,7 +58,8 @@ class AuthGuard {
     // 3. Cek platform support untuk route tertentu
     final platformCheck = _routePlatformChecks[path];
     if (platformCheck != null && !platformCheck()) {
-      return '/dashboard';
+      final featureName = path == '/ping' ? 'Ping Scanner' : 'Scan RbWDCP';
+      return '/unsupported-feature?feature=$featureName';
     }
 
     // 4. Cek permission untuk route tertentu

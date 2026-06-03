@@ -11,6 +11,9 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/responsive_helper.dart';
 import '../../../../../core/utils/export_helper.dart';
 import '../../../../../layout/main_layout.dart';
+import 'package:edp_netops/core/widgets/app_loading_indicator.dart';
+import 'package:edp_netops/core/widgets/app_empty_state.dart';
+import 'package:edp_netops/core/widgets/page_entry_transition.dart';
 
 class StoreListPage extends StatefulWidget {
   const StoreListPage({super.key});
@@ -21,10 +24,6 @@ class StoreListPage extends StatefulWidget {
 
 class _StoreListPageState extends State<StoreListPage> {
   final _controller = StoreListController();
-
-  // UI-only state — animasi tetap di page
-  bool _showHeader = false;
-  bool _showList = false;
 
   // Shortcuts untuk kemudahan baca di build
   List<StoreModel> get _allStores => _controller.allStores;
@@ -39,15 +38,6 @@ class _StoreListPageState extends State<StoreListPage> {
       if (mounted) setState(() {});
     });
     _controller.fetchStores();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      Future.delayed(const Duration(milliseconds: 80), () {
-        if (mounted) setState(() => _showHeader = true);
-      });
-      Future.delayed(const Duration(milliseconds: 280), () {
-        if (mounted) setState(() => _showList = true);
-      });
-    });
   }
 
   @override
@@ -70,41 +60,21 @@ class _StoreListPageState extends State<StoreListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.primaryColor,
-      // Tidak ada drawer/sidebar — ditangani MainLayout (ShellRoute)
       floatingActionButton: _isAdminOrAbove ? _buildFab() : null,
-      body: Column(
-        children: [
-          // Header — Fade-In Slide-Up pertama (80ms)
-          AnimatedOpacity(
-            opacity: _showHeader ? 1.0 : 0.0,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.easeOut,
-            child: AnimatedSlide(
-              offset: _showHeader ? Offset.zero : const Offset(0, -0.03),
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeOutCubic,
-              child: _buildHeader(),
-            ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? _buildLoadingState()
-                : AnimatedOpacity(
-                    opacity: _showList ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeOut,
-                    child: AnimatedSlide(
-                      offset: _showList ? Offset.zero : const Offset(0, 0.04),
-                      duration: const Duration(milliseconds: 500),
-                      curve: Curves.easeOutCubic,
-                      child: _filteredStores.isEmpty
-                          ? _buildEmptyState()
-                          : _buildStoreList(),
-                    ),
+      body: _isLoading
+          ? _buildLoadingState()
+          : PageEntryTransition(
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: _filteredStores.isEmpty
+                        ? _buildEmptyState()
+                        : _buildStoreList(),
                   ),
-          ),
-        ],
-      ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -534,44 +504,10 @@ class _StoreListPageState extends State<StoreListPage> {
   // LOADING STATE
   // ==========================================
   Widget _buildLoadingState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: context.cardColor,
-              shape: BoxShape.circle,
-              border: Border.all(color: context.accentColor.withOpacity(0.2)),
-              boxShadow: [
-                BoxShadow(
-                  color: context.accentColor.withOpacity(0.1),
-                  blurRadius: 20,
-                ),
-              ],
-            ),
-            child: SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(
-                color: context.accentColor,
-                strokeWidth: 2.5,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            "MEMUAT DATA TOKO...",
-            style: TextStyle(
-              color: context.textSecondary,
-              fontSize: 11,
-              letterSpacing: 2.5,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
+    return const AppLoadingIndicator(
+      message: "MEMUAT DATA TOKO...",
+      size: 32,
+      isCard: true,
     );
   }
 
@@ -579,66 +515,24 @@ class _StoreListPageState extends State<StoreListPage> {
   // EMPTY STATE
   // ==========================================
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: context.cardColor,
-              shape: BoxShape.circle,
-              border: Border.all(color: context.borderColor),
-            ),
-            child: Icon(
-              Icons.storefront_outlined,
-              size: 40,
-              color: context.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            "Tidak Ada Hasil",
-            style: TextStyle(
-              color: context.textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _controller.searchController.text.isNotEmpty ||
-                    _controller.activeFilter != 'Semua'
-                ? "Coba ubah filter atau kata pencarian"
-                : "Belum ada data toko tersedia",
-            style: TextStyle(color: context.textSecondary, fontSize: 12),
-          ),
-          if (_controller.activeFilter != 'Semua' ||
-              _controller.searchController.text.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            TextButton.icon(
-              onPressed: () {
-                _controller.setFilter('Semua');
-                _controller.clearSearch();
-              },
-              icon: Icon(
-                Icons.refresh_rounded,
-                color: context.accentColor,
-                size: 16,
-              ),
-              label: Text(
-                "Reset Filter",
-                style: TextStyle(
-                  color: context.accentColor,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
+    final hasActiveFilterOrSearch = _controller.searchController.text.isNotEmpty ||
+        _controller.activeFilter != 'Semua';
+    return AppEmptyState(
+      title: "Tidak Ada Hasil",
+      message: hasActiveFilterOrSearch
+          ? "Coba ubah filter atau kata pencarian"
+          : "Belum ada data toko tersedia",
+      icon: Icons.storefront_outlined,
+      actionLabel: hasActiveFilterOrSearch ? "Reset Filter" : null,
+      onAction: hasActiveFilterOrSearch
+          ? () {
+              _controller.setFilter('Semua');
+              _controller.clearSearch();
+            }
+          : null,
     );
   }
+
 
   // ==========================================
   // STORE LIST — Grid 2 kolom di desktop, 1 di mobile

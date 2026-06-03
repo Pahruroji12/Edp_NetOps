@@ -3,7 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../dashboard_controller.dart';
 
-/// Ticket analytics chart section with area chart + insights + quick filters.
+/// Ticket analytics chart section with area chart + insights + quick filters + Month/Year filters.
 class TicketChartSection extends StatelessWidget {
   const TicketChartSection({super.key, required this.ctrl});
   final DashboardController ctrl;
@@ -11,6 +11,30 @@ class TicketChartSection extends StatelessWidget {
   static const _filters = [
     (7, '7D'), (30, '30D'), (90, '3M'), (365, '1Y'),
   ];
+
+  static const _monthNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+  ];
+
+  List<int> _availableYears(DashboardController ctrl) {
+    final years = <int>{};
+    for (final t in ctrl.allTickets) {
+      if (t.createdAt != null) years.add(t.createdAt!.year);
+    }
+    if (years.isEmpty) years.add(DateTime.now().year);
+    final sorted = years.toList()..sort();
+    return sorted;
+  }
+
+  double _smartInterval(double maxVal) {
+    if (maxVal <= 5) return 1;
+    if (maxVal <= 10) return 2;
+    if (maxVal <= 25) return 5;
+    if (maxVal <= 50) return 10;
+    if (maxVal <= 100) return 20;
+    return (maxVal / 5).ceilToDouble();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +55,7 @@ class TicketChartSection extends StatelessWidget {
           // ── Header + filters ──
           LayoutBuilder(
             builder: (context, constraints) {
-              final isSmall = constraints.maxWidth < 450;
+              final isSmall = constraints.maxWidth < 600;
               if (isSmall) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,14 +69,20 @@ class TicketChartSection extends StatelessWidget {
                           color: context.textSecondary, letterSpacing: 1.5)),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: _filters.map((f) => _FilterChip(
-                        label: f.$2,
-                        isActive: ctrl.chartDays == f.$1,
-                        onTap: () => ctrl.setChartDays(f.$1),
-                      )).toList(),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          ..._filters.map((f) => _FilterChip(
+                            label: f.$2,
+                            isActive: ctrl.filterMonth == null && ctrl.chartDays == f.$1,
+                            onTap: () => ctrl.setChartDays(f.$1),
+                          )),
+                          const SizedBox(width: 12),
+                          _buildFilterDropdowns(context),
+                        ],
+                      ),
                     ),
                   ],
                 );
@@ -67,9 +97,11 @@ class TicketChartSection extends StatelessWidget {
                   const Spacer(),
                   ..._filters.map((f) => _FilterChip(
                     label: f.$2,
-                    isActive: ctrl.chartDays == f.$1,
+                    isActive: ctrl.filterMonth == null && ctrl.chartDays == f.$1,
                     onTap: () => ctrl.setChartDays(f.$1),
                   )),
+                  const SizedBox(width: 12),
+                  _buildFilterDropdowns(context),
                 ],
               );
             },
@@ -98,6 +130,107 @@ class TicketChartSection extends StatelessWidget {
     );
   }
 
+  Widget _buildFilterDropdowns(BuildContext context) {
+    final years = _availableYears(ctrl);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Year selector popup
+        _buildDropdown(
+          context: context,
+          icon: Icons.calendar_today_rounded,
+          value: '${ctrl.filterYear}',
+          items: years.map((y) => '$y').toList(),
+          onSelected: (v) => ctrl.setFilterYear(int.parse(v)),
+        ),
+        const SizedBox(width: 6),
+        // Month selector popup
+        _buildDropdown(
+          context: context,
+          icon: Icons.date_range_rounded,
+          value: ctrl.filterMonth != null ? _monthNames[ctrl.filterMonth! - 1] : 'Semua',
+          items: ['Semua', ..._monthNames],
+          onSelected: (v) {
+            if (v == 'Semua') {
+              ctrl.setFilterMonth(null);
+            } else {
+              ctrl.setFilterMonth(_monthNames.indexOf(v) + 1);
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdown({
+    required BuildContext context,
+    required IconData icon,
+    required String value,
+    required List<String> items,
+    required ValueChanged<String> onSelected,
+  }) {
+    return PopupMenuButton<String>(
+      onSelected: onSelected,
+      offset: const Offset(0, 32),
+      color: context.cardColor,
+      elevation: 6,
+      shadowColor: Colors.black.withOpacity(0.15),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: context.borderColor.withOpacity(0.5)),
+      ),
+      constraints: const BoxConstraints(minWidth: 100),
+      itemBuilder: (_) => items.map((item) {
+        final isSelected = item == value;
+        return PopupMenuItem<String>(
+          value: item,
+          height: 32,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(item,
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected
+                            ? context.accentColor
+                            : context.textPrimary)),
+              ),
+              if (isSelected)
+                Icon(Icons.check_rounded,
+                    size: 13, color: context.accentColor),
+            ],
+          ),
+        );
+      }).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: context.accentColor.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(6),
+          border:
+              Border.all(color: context.accentColor.withOpacity(0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 11, color: context.accentColor),
+            const SizedBox(width: 4),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: context.accentColor)),
+            const SizedBox(width: 2),
+            Icon(Icons.keyboard_arrow_down_rounded,
+                size: 13, color: context.accentColor),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildChart(BuildContext context, List<Map<String, dynamic>> data) {
     final openColor = const Color(0xFFFF6B6B);
     final progressColor = const Color(0xFFFFA726);
@@ -106,12 +239,27 @@ class TicketChartSection extends StatelessWidget {
     // Sample data to avoid too many points
     final sampled = _sampleData(data, maxPoints: 30);
 
+    // Calculate dynamic max value for smart intervals
+    double maxVal = 0;
+    for (final d in sampled) {
+      final o = (d['open'] as int).toDouble();
+      final p = (d['progress'] as int).toDouble();
+      final r = (d['resolved'] as int).toDouble();
+      if (o > maxVal) maxVal = o;
+      if (p > maxVal) maxVal = p;
+      if (r > maxVal) maxVal = r;
+    }
+
+    final interval = _smartInterval(maxVal);
+
     return LineChart(
       LineChartData(
+        minY: 0,
+        maxY: (maxVal + 2).ceilToDouble(),
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: 1,
+          horizontalInterval: interval,
           getDrawingHorizontalLine: (v) => FlLine(
             color: context.borderColor.withOpacity(0.15),
             strokeWidth: 0.5,
@@ -122,10 +270,14 @@ class TicketChartSection extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 28,
-              getTitlesWidget: (v, _) => Text(
-                '${v.toInt()}',
-                style: TextStyle(fontSize: 9, color: context.textSecondary),
-              ),
+              interval: interval,
+              getTitlesWidget: (v, _) {
+                if (v != v.roundToDouble()) return const SizedBox.shrink();
+                return Text(
+                  '${v.toInt()}',
+                  style: TextStyle(fontSize: 9, color: context.textSecondary),
+                );
+              },
             ),
           ),
           bottomTitles: AxisTitles(
@@ -154,6 +306,9 @@ class TicketChartSection extends StatelessWidget {
             getTooltipItems: (spots) => spots.map((s) {
               final colors = [openColor, progressColor, resolvedColor];
               final labels = ['Open', 'Progress', 'Resolved'];
+              if (s.barIndex < 0 || s.barIndex >= labels.length) {
+                return null;
+              }
               return LineTooltipItem(
                 '${labels[s.barIndex]}: ${s.y.toInt()}',
                 TextStyle(fontSize: 10, color: colors[s.barIndex], fontWeight: FontWeight.w600),
@@ -167,8 +322,7 @@ class TicketChartSection extends StatelessWidget {
           _buildLine(sampled, 'resolved', resolvedColor),
         ],
       ),
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOut,
+      duration: Duration.zero,
     );
   }
 

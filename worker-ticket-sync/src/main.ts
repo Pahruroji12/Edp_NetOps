@@ -71,11 +71,18 @@ async function runIntervalSync(): Promise<void> {
 
   await WorkerStatusService.setRunning();
   try {
-    // ─── RETRY: Otomatis coba ulang jika IMAP/Supabase gagal ───
-    const updatedCount = await withRetry(
+    // ─── TIMEOUT GLOBAL: Jika seluruh proses sync melebihi 2 menit, batalkan ───
+    const SYNC_TIMEOUT_MS = 2 * 60 * 1000; // 2 menit
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Sync timeout: proses melebihi 2 menit")), SYNC_TIMEOUT_MS)
+    );
+
+    const syncPromise = withRetry(
       () => syncTicketsFromEmail(),
       "Ticket Sync"
     );
+
+    const updatedCount = await Promise.race([syncPromise, timeoutPromise]);
     await WorkerStatusService.setSuccess(updatedCount);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);

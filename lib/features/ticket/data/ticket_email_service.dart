@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:edp_netops/core/platform/native_io.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -71,7 +71,8 @@ class TicketEmailService {
       for (final path in attachments) {
         final file = File(path);
         if (await file.exists()) {
-          message.attachments.add(FileAttachment(file));
+          // ignore: argument_type_not_assignable
+          message.attachments.add(FileAttachment(file as dynamic));
         }
       }
 

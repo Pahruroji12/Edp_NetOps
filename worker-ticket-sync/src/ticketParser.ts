@@ -35,7 +35,13 @@ export function extractTicketNumber(
   }
 
   if (cleanProvider === "icon") {
-    // ICON format: REWXXXXX (e.g. REWEXRH3) or CS-123456789 or ID-12345678 or direct 9 digits
+    // 1. Cari setelah kata "No Ticket" (misal: "( No Ticket REWRRQ36 )" atau "No Ticket: CS-123456")
+    const prefixMatch = text.match(/(?:No\s+Ticket|NoTicket)\s*:?\s*\b([A-Z0-9-]+)\b/i);
+    if (prefixMatch) {
+      return prefixMatch[1].toUpperCase();
+    }
+
+    // 2. Fallback menggunakan format lama jika kata "No Ticket" tidak ditemukan
     const match = text.match(/\b(REW[A-Z0-9]{5}|CS-\d+|ID-\d+|\d{9})\b/i);
     return match ? match[1].toUpperCase() : null;
   }

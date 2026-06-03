@@ -1,35 +1,4 @@
-function extractStoreCodes(text: string): string[] {
-  const matches = text.matchAll(/\b([A-Z][A-Z0-9]{3})\b/gi);
-  const codes = new Set<string>();
-  for (const match of matches) {
-    codes.add(match[1].toUpperCase());
-  }
-  return Array.from(codes);
-}
-
-function extractTicketNumber(provider: string, text: string): string | null {
-  const cleanProvider = provider.toLowerCase();
-
-  if (cleanProvider === "astinet") {
-    const match = text.match(/\b(TKT-\d+|INC\d+|IN\d+)\b/i);
-    return match ? match[1].toUpperCase() : null;
-  }
-
-  if (cleanProvider === "icon") {
-    const match = text.match(/\b(CS-\d+|ID-\d+|\d{9})\b/i);
-    return match ? match[1].toUpperCase() : null;
-  }
-
-  if (cleanProvider === "fiberstar") {
-    const match = text.match(/\b(FIB-\d+)\b/i);
-    return match ? match[1].toUpperCase() : null;
-  }
-
-  const genericMatch = text.match(
-    /\b(TKT-\d+|INC\d+|IN\d+|CS-\d+|ID-\d+|FIB-\d+|\d{9})\b/i
-  );
-  return genericMatch ? genericMatch[1].toUpperCase() : null;
-}
+import { extractStoreCodes, extractTicketNumber } from "./ticketParser";
 
 const emailSubject = "Re: Mohon dibantu open tiket toko IDM Cab LEBAK - TGPJ RAYA SAMPAY CILELES";
 const emailBody = `On 28 May 2026 07:23, Edp Net Lebak wrote:
@@ -53,15 +22,29 @@ const candidates = extractStoreCodes(searchString);
 console.log("Candidate store codes found:", candidates);
 
 const ticketNo = extractTicketNumber("Astinet", searchString);
-console.log("Extracted ticket number:", ticketNo);
+console.log("Extracted ticket number (Astinet):", ticketNo);
 
-// Simulate matching with ticket in DB
-const activeTickets = [
-  {
-    store_code: "TGPJ",
-    store_name: "RAYA SAMPAY CILELES",
-  }
-];
+// Test ICON cases
+console.log("\n--- Testing ICON cases ---");
+const iconEmailBody1 = `
+Nama Pelanggan : PT. INDOMARCO PRISMATAMA
+1. INTERNET CORPORATE LITE : 0 - (LEBAK) (TOLY) (MEKAR AGUNG LEBAK)
+( No Ticket REWRRQ36 )
+`;
+console.log("ICON Case 1 (REW):", extractTicketNumber("ICON", iconEmailBody1)); // Expected: REWRRQ36
 
-const matched = activeTickets.filter(t => candidates.includes(t.store_code.toUpperCase()));
-console.log("Matched tickets:", matched);
+const iconEmailBody2 = `
+Nama Pelanggan : PT. INDOMARCO PRISMATAMA
+( No Ticket RENEXRH3 )
+`;
+console.log("ICON Case 2 (REN):", extractTicketNumber("ICON", iconEmailBody2)); // Expected: RENEXRH3
+
+const iconEmailBody3 = `
+(NoTicket: CS-123456789)
+`;
+console.log("ICON Case 3 (CS- with colon):", extractTicketNumber("ICON", iconEmailBody3)); // Expected: CS-123456789
+
+const iconEmailBody4 = `
+Nomor tiket gangguan Anda adalah ID-987654321
+`;
+console.log("ICON Case 4 (Fallback ID-):", extractTicketNumber("ICON", iconEmailBody4)); // Expected: ID-987654321

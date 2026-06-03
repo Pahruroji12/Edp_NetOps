@@ -10,7 +10,7 @@ class AppConstants {
 
   // ── Aplikasi ───────────────────────────────────────────────────
   static const String appName = 'EDP NetOps';
-  static const String appVersion = '2.7.0';
+  static const String appVersion = '2.8.0';
   static const String companyName = 'PT. Indomarco Prismatama';
   static const String branchName = 'Cabang LEBAK';
 

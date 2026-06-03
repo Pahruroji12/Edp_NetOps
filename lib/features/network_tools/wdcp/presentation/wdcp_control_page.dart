@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/page_entry_transition.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
 import 'wdcp_controller.dart';
@@ -69,10 +70,7 @@ class _WdcpControlPageState extends State<WdcpControlPage>
       backgroundColor: context.primaryColor,
       body: _ctrl.isLoading
           ? WdcpLoadingState(ip: widget.ip)
-          : AnimatedOpacity(
-              opacity: _ctrl.animationsReady ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeOut,
+          : PageEntryTransition(
               child: CustomScrollView(
                 physics: const BouncingScrollPhysics(),
                 slivers: [
@@ -115,6 +113,7 @@ class _WdcpControlPageState extends State<WdcpControlPage>
             ),
     );
   }
+
 
   // ══════════════════════════════════════════════════════════
   // SLIVER APP BAR

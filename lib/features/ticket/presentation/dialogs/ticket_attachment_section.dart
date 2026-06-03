@@ -1,5 +1,6 @@
-import 'dart:io';
+import 'package:edp_netops/core/platform/native_io.dart';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -288,6 +289,19 @@ class _TicketAttachmentSectionState extends State<TicketAttachmentSection> {
     );
   }
 
+  ImageProvider _getImageProvider(String path) {
+    if (kIsWeb) {
+      // Web: image picked via image_picker returns a blob URL on web
+      return NetworkImage(path);
+    }
+    // Desktop / Mobile: use dart:io File via native_io wrapper
+    // We cast via dynamic to avoid type mismatch between stub File and dart:io File
+    // This branch is never reached on web, so the cast is safe at runtime.
+    // ignore: avoid_dynamic_calls
+    final ioFile = File(path);
+    return FileImage(ioFile as dynamic);
+  }
+
   // ── Image Preview List ─────────────────────────────────────────
   Widget _buildImageList(BuildContext context) {
     return SizedBox(
@@ -306,7 +320,7 @@ class _TicketAttachmentSectionState extends State<TicketAttachmentSection> {
                 border: Border.all(
                     color: context.accentColor.withOpacity(0.3)),
                 image: DecorationImage(
-                  image: FileImage(File(widget.images[i].path)),
+                  image: _getImageProvider(widget.images[i].path),
                   fit: BoxFit.cover,
                 ),
               ),

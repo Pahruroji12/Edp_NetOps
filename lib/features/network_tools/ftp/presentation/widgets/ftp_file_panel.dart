@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:edp_netops/core/platform/native_io.dart';
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../data/ftp_client.dart';

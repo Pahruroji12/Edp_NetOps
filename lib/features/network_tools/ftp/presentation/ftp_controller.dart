@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:edp_netops/core/platform/native_io.dart';
 
 import 'package:flutter/material.dart';
 

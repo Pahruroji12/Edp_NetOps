@@ -27,6 +27,10 @@ async function fetchRecentEmails(config, daysToScan = 3, skipMessageIds = new Se
             rejectUnauthorized: false, // Bypass expired or self-signed certificate validation
         },
         logger: false,
+        // Timeout: mencegah koneksi hang tanpa batas
+        connectionTimeout: 30_000, // 30 detik timeout untuk koneksi awal
+        greetingTimeout: 15_000, // 15 detik timeout untuk greeting dari server
+        socketTimeout: 60_000, // 60 detik timeout untuk operasi socket
     });
     await client.connect();
     const lock = await client.getMailboxLock("INBOX");

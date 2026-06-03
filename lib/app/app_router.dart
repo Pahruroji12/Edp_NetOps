@@ -14,6 +14,7 @@ import '../features/profile/presentation/profile_page.dart';
 import '../features/profile/presentation/admin_panel_page.dart';
 import '../features/settings/presentation/settings_page.dart';
 import '../features/settings/presentation/about_page.dart';
+import '../core/widgets/unsupported_feature_page.dart';
 
 /// AppRouter — semua konfigurasi GoRouter di satu tempat.
 ///
@@ -83,6 +84,13 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const AdminPanelPage(),
         ),
         GoRoute(path: '/about', builder: (context, state) => const AboutPage()),
+        GoRoute(
+          path: '/unsupported-feature',
+          builder: (context, state) {
+            final featureName = state.uri.queryParameters['feature'] ?? 'Fitur';
+            return UnsupportedFeaturePage(featureName: featureName);
+          },
+        ),
       ],
     ),
   ],

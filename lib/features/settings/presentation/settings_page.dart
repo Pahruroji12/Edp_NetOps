@@ -8,6 +8,7 @@ import '../../../../core/widgets/section_header.dart';
 import 'settings_controller.dart';
 import 'settings_widgets.dart';
 import 'settings_sections.dart';
+import '../../../core/widgets/page_entry_transition.dart';
 
 /// SettingsPage — thin UI page untuk pengaturan sistem.
 ///
@@ -80,72 +81,64 @@ class _SettingsPageState extends State<SettingsPage> {
       backgroundColor: context.primaryColor,
       body: _ctrl.isLoading
           ? const SettingsLoadingOverlay()
-          : AnimatedOpacity(
-              opacity: _ctrl.animationsReady ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 700),
-              curve: Curves.easeOut,
-              child: AnimatedSlide(
-                offset:
-                    _ctrl.animationsReady ? Offset.zero : const Offset(0, 0.04),
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.easeOut,
-                child: CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    _buildSliverAppBar(),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          context.pagePaddingH,
-                          0,
-                          context.pagePaddingH,
-                          40,
-                        ),
-                        child: Column(
-                          children: [
+          : PageEntryTransition(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  _buildSliverAppBar(),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        context.pagePaddingH,
+                        0,
+                        context.pagePaddingH,
+                        40,
+                      ),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 24),
+                          if (_ctrl.isAdministrator) ...[
+                            const SectionHeader(
+                              title: "MANAJEMEN PENGGUNA",
+                              icon: Icons.people_outline,
+                            ),
+                            const SizedBox(height: 12),
+                            UserManagementSection(ctrl: _ctrl),
                             const SizedBox(height: 24),
-                            if (_ctrl.isAdministrator) ...[
-                              const SectionHeader(
-                                title: "MANAJEMEN PENGGUNA",
-                                icon: Icons.people_outline,
-                              ),
-                              const SizedBox(height: 12),
-                              UserManagementSection(ctrl: _ctrl),
-                              const SizedBox(height: 24),
-                              const SectionHeader(
-                                title: "KONFIGURASI SISTEM",
-                                icon: Icons.router_outlined,
-                              ),
-                              const SizedBox(height: 12),
-                              RouterConfigSection(ctrl: _ctrl),
-                              const SizedBox(height: 24),
-                              const SectionHeader(
-                                title: "KONFIGURASI SMTP",
-                                icon: Icons.email_outlined,
-                              ),
-                              const SizedBox(height: 12),
-                              SmtpConfigSection(ctrl: _ctrl),
-                              const SizedBox(height: 24),
-                              const SectionHeader(
-                                title: "KONFIGURASI IMAP",
-                                icon: Icons.mail_outline_rounded,
-                              ),
-                              const SizedBox(height: 12),
-                              ImapConfigSection(ctrl: _ctrl),
-                            ] else ...[
-                              const SettingsRestrictedAccess(),
-                            ],
-                            const SizedBox(height: 20),
+                            const SectionHeader(
+                              title: "KONFIGURASI SISTEM",
+                              icon: Icons.router_outlined,
+                            ),
+                            const SizedBox(height: 12),
+                            RouterConfigSection(ctrl: _ctrl),
+                            const SizedBox(height: 24),
+                            const SectionHeader(
+                              title: "KONFIGURASI SMTP",
+                              icon: Icons.email_outlined,
+                            ),
+                            const SizedBox(height: 12),
+                            SmtpConfigSection(ctrl: _ctrl),
+                            const SizedBox(height: 24),
+                            const SectionHeader(
+                              title: "KONFIGURASI IMAP",
+                              icon: Icons.mail_outline_rounded,
+                            ),
+                            const SizedBox(height: 12),
+                            ImapConfigSection(ctrl: _ctrl),
+                          ] else ...[
+                            const SettingsRestrictedAccess(),
                           ],
-                        ),
+                          const SizedBox(height: 20),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
     );
   }
+
 
   Widget _buildSliverAppBar() {
     final isDesktop = context.isDesktop;

@@ -38,6 +38,10 @@ export async function fetchRecentEmails(
       rejectUnauthorized: false, // Bypass expired or self-signed certificate validation
     },
     logger: false as any,
+    // Timeout: mencegah koneksi hang tanpa batas
+    connectionTimeout: 30_000,  // 30 detik timeout untuk koneksi awal
+    greetingTimeout: 15_000,    // 15 detik timeout untuk greeting dari server
+    socketTimeout: 60_000,      // 60 detik timeout untuk operasi socket
   });
 
   await client.connect();

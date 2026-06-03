@@ -7,12 +7,14 @@ import '../../../core/widgets/custom_snackbar.dart';
 import '../../../layout/main_layout.dart';
 import '../../auth/domain/auth_state.dart';
 import 'dashboard_controller.dart';
-import '../../ticket/presentation/ticket_controller.dart';
+import '../../ticket/presentation/controllers/worker_controller.dart';
 import 'widgets/welcome_section.dart';
 import 'widgets/stats_grid.dart';
 import 'widgets/ticket_chart_section.dart';
 import 'widgets/ranking_section.dart';
+import 'widgets/provider_chart_section.dart';
 import 'widgets/recent_ticket_table.dart';
+import '../../../core/widgets/page_entry_transition.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -25,11 +27,11 @@ class _DashboardPageState extends State<DashboardPage> {
   final _ctrl = DashboardController();
 
   // UI-only animation flags
-  bool _animationsReady = false;
   bool _showAppBar = false;
   bool _showWelcome = false;
   bool _showStats = false;
   bool _showAnalytics = false;
+  bool _showProviderChart = false;
   bool _showRecent = false;
 
   @override
@@ -46,11 +48,9 @@ class _DashboardPageState extends State<DashboardPage> {
       if (AuthState.instance.showWelcomeOnDashboard) {
         AuthState.instance.showWelcomeOnDashboard = false;
         CustomSnackBar.success("Selamat datang, ${AuthState.instance.name}!");
-        // Auto start background worker on login if not already running
-        TicketController.autoStartWorkerIfNeeded();
+        WorkerController.autoStartWorkerIfNeeded();
       }
 
-      setState(() => _animationsReady = true);
       Future.delayed(const Duration(milliseconds: 80), () {
         if (mounted) setState(() => _showAppBar = true);
       });
@@ -64,6 +64,9 @@ class _DashboardPageState extends State<DashboardPage> {
         if (mounted) setState(() => _showAnalytics = true);
       });
       Future.delayed(const Duration(milliseconds: 760), () {
+        if (mounted) setState(() => _showProviderChart = true);
+      });
+      Future.delayed(const Duration(milliseconds: 940), () {
         if (mounted) setState(() => _showRecent = true);
       });
     });
@@ -81,88 +84,98 @@ class _DashboardPageState extends State<DashboardPage> {
       backgroundColor: context.primaryColor,
       body: _ctrl.isLoading
           ? _buildLoadingScreen()
-          : AnimatedOpacity(
-              opacity: _animationsReady ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 500),
-              curve: Curves.easeOut,
-              child: AnimatedSlide(
-                offset: _animationsReady ? Offset.zero : const Offset(0, 0.02),
-                duration: const Duration(milliseconds: 500),
-                curve: Curves.easeOut,
-                child: CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    SliverAnimatedOpacity(
-                      opacity: _showAppBar ? 1.0 : 0.0,
-                      duration: const Duration(milliseconds: 500),
-                      curve: Curves.easeOut,
-                      sliver: _buildSliverAppBar(),
-                    ),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          context.pagePaddingH,
-                          context.scaledPadding(20),
-                          context.pagePaddingH,
-                          context.scaledPadding(40),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // ── Welcome section ──
-                            _animSection(
-                              visible: _showWelcome,
-                              child: WelcomeSection(
-                                timeString: _ctrl.timeString,
-                                dateString: _ctrl.dateString,
-                              ),
+          : PageEntryTransition(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  SliverAnimatedOpacity(
+                    opacity: _showAppBar ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeOut,
+                    sliver: _buildSliverAppBar(),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        context.pagePaddingH,
+                        context.scaledPadding(20),
+                        context.pagePaddingH,
+                        context.scaledPadding(40),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ── Welcome section ──
+                          _animSection(
+                            visible: _showWelcome,
+                            child: WelcomeSection(
+                              timeString: _ctrl.timeString,
+                              dateString: _ctrl.dateString,
                             ),
-                            const SizedBox(height: 24),
+                          ),
+                          const SizedBox(height: 24),
 
-                            // ── Stats grid ──
-                            _animSection(
-                              visible: _showStats,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildSectionLabel(
-                                    'STATISTIK JARINGAN',
-                                    Icons.analytics_outlined,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  StatsGrid(
-                                    totalStores: _ctrl.totalStores,
-                                    foStores: _ctrl.foStores,
-                                    backupVsat: _ctrl.backupVsat,
-                                    singleVsat: _ctrl.singleVsat,
-                                    gsmStores: _ctrl.gsmStores,
-                                    xlStores: _ctrl.xlStores,
-                                  ),
-                                ],
-                              ),
+                          // ── Stats grid ──
+                          _animSection(
+                            visible: _showStats,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildSectionLabel(
+                                  'STATISTIK JARINGAN',
+                                  Icons.analytics_outlined,
+                                ),
+                                const SizedBox(height: 12),
+                                StatsGrid(
+                                  totalStores: _ctrl.totalStores,
+                                  foStores: _ctrl.foStores,
+                                  backupVsat: _ctrl.backupVsat,
+                                  singleVsat: _ctrl.singleVsat,
+                                  gsmStores: _ctrl.gsmStores,
+                                  xlStores: _ctrl.xlStores,
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 24),
+                          ),
+                          const SizedBox(height: 24),
 
-                            // ── Analytics: Chart + Ranking ──
-                            _animSection(
-                              visible: _showAnalytics,
-                              child: _buildAnalyticsRow(context),
-                            ),
-                            const SizedBox(height: 24),
+                          // ── Analytics: Chart + Ranking ──
+                          _animSection(
+                            visible: _showAnalytics,
+                            child: _buildAnalyticsRow(context),
+                          ),
+                          const SizedBox(height: 24),
 
-                            // ── Recent critical tickets ──
-                            _animSection(
-                              visible: _showRecent,
-                              child: RecentTicketTable(ctrl: _ctrl),
+                          // ── Provider disruption chart ──
+                          _animSection(
+                            visible: _showProviderChart,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildSectionLabel(
+                                  'ANALISIS PROVIDER',
+                                  Icons.router_outlined,
+                                ),
+                                const SizedBox(height: 12),
+                                ProviderChartSection(ctrl: _ctrl),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // ── Recent critical tickets ──
+                          _animSection(
+                            visible: _showRecent,
+                            child: RecentTicketTable(ctrl: _ctrl),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
+
     );
   }
 

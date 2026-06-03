@@ -28,6 +28,27 @@ class DashboardController extends ChangeNotifier {
 
   // ── Chart filter ──────────────────────────────────────────────
   int chartDays = 30; // 7, 30, 90, 365
+  int? filterMonth; // null = use quick filter (chartDays)
+  int filterYear = DateTime.now().year;
+
+  void setFilterMonth(int? month) {
+    filterMonth = month;
+    notifyListeners();
+  }
+
+  void setFilterYear(int year) {
+    filterYear = year;
+    notifyListeners();
+  }
+
+  int _daysInMonth(int year, int month) {
+    if (month == 2) {
+      final isLeap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+      return isLeap ? 29 : 28;
+    }
+    const days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return days[month - 1];
+  }
 
   // ── Clock ─────────────────────────────────────────────────────
   String timeString = '';
@@ -106,15 +127,23 @@ class DashboardController extends ChangeNotifier {
 
   void setChartDays(int days) {
     chartDays = days;
+    filterMonth = null; // Clear monthly filter to show quick filter
     notifyListeners();
   }
 
   // ── Ticket computed properties ────────────────────────────────
 
   List<TicketModel> get _ticketsInRange {
-    final cutoff = DateTime.now().subtract(Duration(days: chartDays));
-    return allTickets.where((t) =>
-      t.createdAt != null && t.createdAt!.isAfter(cutoff)).toList();
+    if (filterMonth != null) {
+      return allTickets.where((t) =>
+        t.createdAt != null &&
+        t.createdAt!.year == filterYear &&
+        t.createdAt!.month == filterMonth).toList();
+    } else {
+      final cutoff = DateTime.now().subtract(Duration(days: chartDays));
+      return allTickets.where((t) =>
+        t.createdAt != null && t.createdAt!.isAfter(cutoff)).toList();
+    }
   }
 
   int get openTickets => _ticketsInRange.where((t) => t.status == 'Open').length;
@@ -124,16 +153,25 @@ class DashboardController extends ChangeNotifier {
 
   /// Daily ticket counts for the chart — returns list of {date, open, progress, resolved}
   List<Map<String, dynamic>> get dailyChartData {
-    final now = DateTime.now();
-    final cutoff = now.subtract(Duration(days: chartDays));
     final tickets = _ticketsInRange;
     final dayMap = <String, Map<String, int>>{};
 
-    // Initialize all days
-    for (int i = 0; i <= chartDays; i++) {
-      final d = cutoff.add(Duration(days: i));
-      final key = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-      dayMap[key] = {'open': 0, 'progress': 0, 'resolved': 0};
+    if (filterMonth != null) {
+      // Initialize all days of the selected month
+      final days = _daysInMonth(filterYear, filterMonth!);
+      for (int i = 1; i <= days; i++) {
+        final key = '$filterYear-${filterMonth!.toString().padLeft(2, '0')}-${i.toString().padLeft(2, '0')}';
+        dayMap[key] = {'open': 0, 'progress': 0, 'resolved': 0};
+      }
+    } else {
+      // Initialize all days based on quick filter (chartDays)
+      final now = DateTime.now();
+      final cutoff = now.subtract(Duration(days: chartDays));
+      for (int i = 0; i <= chartDays; i++) {
+        final d = cutoff.add(Duration(days: i));
+        final key = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+        dayMap[key] = {'open': 0, 'progress': 0, 'resolved': 0};
+      }
     }
 
     for (final t in tickets) {

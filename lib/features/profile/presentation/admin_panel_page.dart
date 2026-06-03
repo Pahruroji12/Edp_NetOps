@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive_helper.dart';
 import 'admin_panel_controller.dart';
 import 'admin_panel_widgets.dart';
+import '../../../core/widgets/page_entry_transition.dart';
 
 /// AdminPanelPage — thin UI page untuk Control Center.
 ///
@@ -79,34 +80,26 @@ class _AdminPanelPageState extends State<AdminPanelPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.primaryColor,
-      body: AnimatedOpacity(
-        opacity: _ctrl.animationsReady ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeOut,
-        child: AnimatedSlide(
-          offset:
-              _ctrl.animationsReady ? Offset.zero : const Offset(0, 0.03),
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeOut,
-          child: NestedScrollView(
-            physics: const BouncingScrollPhysics(),
-            headerSliverBuilder: (_, __) => [_buildSliverAppBar()],
-            body: Column(
-              children: [
-                _buildTabBar(),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [_buildUsersTab(), _buildLogsTab()],
-                  ),
+      body: PageEntryTransition(
+        child: NestedScrollView(
+          physics: const BouncingScrollPhysics(),
+          headerSliverBuilder: (_, __) => [_buildSliverAppBar()],
+          body: Column(
+            children: [
+              _buildTabBar(),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [_buildUsersTab(), _buildLogsTab()],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+
 
   // ══════════════════════════════════════════════════════════
   // SLIVER APP BAR

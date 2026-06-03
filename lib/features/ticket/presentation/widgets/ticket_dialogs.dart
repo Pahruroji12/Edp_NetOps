@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive_helper.dart';
 import '../../../../core/permissions/permission_helper.dart';
 import '../../../../core/widgets/confirm_dialog.dart';
+import '../../../../core/widgets/custom_snackbar.dart';
 import '../../domain/ticket_model.dart';
 import '../../presentation/ticket_controller.dart';
 
@@ -18,6 +20,7 @@ Future<void> showTicketDetailDialog(
     required String id,
     required String nomorTiket,
     required String status,
+    required String keterangan,
   })
   onUpdate,
 }) async {
@@ -88,6 +91,27 @@ Future<void> showTicketDetailDialog(
                             ? context.textSecondary.withOpacity(0.4)
                             : null,
                         italic: noTiket.isEmpty,
+                        trailing: noTiket.isNotEmpty
+                            ? Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    Clipboard.setData(ClipboardData(text: noTiket)).then((_) {
+                                      CustomSnackBar.info('Nomor tiket berhasil disalin!');
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(
+                                      Icons.copy_rounded,
+                                      size: 12,
+                                      color: context.textSecondary.withOpacity(0.6),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : null,
                       ),
                       _DetailRow(
                         'Kode Toko',
@@ -108,6 +132,11 @@ Future<void> showTicketDetailDialog(
                         'Dibuat Oleh',
                         createdBy,
                         icon: Icons.person_outline_rounded,
+                      ),
+                      _DetailRow(
+                        'Keterangan',
+                        ticket.keterangan?.trim().isEmpty ?? true ? '—' : ticket.keterangan!,
+                        icon: Icons.description_outlined,
                       ),
                     ],
                   ),
@@ -185,10 +214,12 @@ Future<void> showTicketUpdateDialog(
     required String id,
     required String nomorTiket,
     required String status,
+    required String keterangan,
   })
   onUpdate,
 }) async {
   final nomorCtrl = TextEditingController(text: ticket.nomorTiket ?? '');
+  final keteranganCtrl = TextEditingController(text: ticket.keterangan ?? '');
   String selectedStatus = ticket.status;
   const pvColor = Color(0xFF2196F3);
 
@@ -297,6 +328,54 @@ Future<void> showTicketUpdateDialog(
                           ),
                           const SizedBox(height: 16),
 
+                          _FieldLabel(
+                            icon: Icons.description_outlined,
+                            label: 'Keterangan',
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: keteranganCtrl,
+                            cursorColor: context.accentColor,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: context.textPrimary,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Masukkan keterangan tambahan...',
+                              hintStyle: TextStyle(
+                                fontSize: 12,
+                                color: context.textSecondary,
+                              ),
+                              filled: true,
+                              fillColor: context.primaryColor,
+                              prefixIcon: Icon(
+                                Icons.info_outline_rounded,
+                                size: 16,
+                                color: context.textSecondary,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: context.borderColor,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(
+                                  color: context.accentColor,
+                                ),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
                           // Status chips
                           _FieldLabel(
                             icon: Icons.flag_outlined,
@@ -374,6 +453,7 @@ Future<void> showTicketUpdateDialog(
                                 id: ticket.id,
                                 nomorTiket: nomorCtrl.text.trim(),
                                 status: selectedStatus,
+                                keterangan: keteranganCtrl.text.trim(),
                               );
                             },
                             style: ElevatedButton.styleFrom(
@@ -538,6 +618,7 @@ class _DetailRow extends StatelessWidget {
     this.valueColor,
     this.bold = false,
     this.italic = false,
+    this.trailing,
   });
 
   final String label;
@@ -546,6 +627,7 @@ class _DetailRow extends StatelessWidget {
   final Color? valueColor;
   final bool bold;
   final bool italic;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -568,14 +650,24 @@ class _DetailRow extends StatelessWidget {
             style: TextStyle(fontSize: 12, color: context.textSecondary),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 12,
-                color: valueColor ?? context.textPrimary,
-                fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
-                fontStyle: italic ? FontStyle.italic : FontStyle.normal,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: valueColor ?? context.textPrimary,
+                      fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
+                      fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+                    ),
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 6),
+                  trailing!,
+                ],
+              ],
             ),
           ),
         ],

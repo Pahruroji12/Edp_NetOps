@@ -21,6 +21,7 @@ class FeatureAvailability {
 
   /// Ping Scanner — hanya di Windows (menggunakan Process.run 'ping')
   static bool get canUsePing => PlatformHelper.isWindows;
+  static bool get canUsePingTools => canUsePing;
 
   /// FTP Client — hanya di Desktop (menggunakan raw TCP Socket)
   static bool get canUseFtp => PlatformHelper.isDesktop;
@@ -30,6 +31,7 @@ class FeatureAvailability {
 
   /// WDCP Scan — hanya di Desktop
   static bool get canUseWdcpScan => PlatformHelper.isDesktop;
+  static bool get canUseWdcpScanner => canUseWdcpScan;
 
   /// Network Tools group — semua sub-fitur network
   static bool get canUseNetworkTools =>
@@ -41,9 +43,19 @@ class FeatureAvailability {
 
   /// Launch Winbox, VNC, Telnet, Ping CMD — hanya Windows
   static bool get canLaunchProcess => PlatformHelper.isWindows;
+  static bool get canUseExternalProcess => canLaunchProcess;
 
   /// Launch explorer.exe — hanya Windows
   static bool get canOpenExplorer => PlatformHelper.isWindows;
+
+  /// Control local background worker (VBS/Node) — hanya Windows / Desktop
+  static bool get canUseWorkerControl => PlatformHelper.isWindows;
+
+  /// Local file system direct export + Open Explorer — hanya Windows
+  static bool get canUseDesktopOnlyExport => PlatformHelper.isWindows;
+
+  /// Auto Update Service (Windows installer or Android APK install)
+  static bool get canUseAutoUpdate => PlatformHelper.isWindows || PlatformHelper.isAndroid;
 
   // ══════════════════════════════════════════════════════════════
   // FILE SYSTEM

@@ -133,9 +133,9 @@ class TicketFilterPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        _ProviderDropdown(ctrl: ctrl, onChanged: onChanged),
-        const SizedBox(width: 8),
         _NoTiketChip(ctrl: ctrl, onChanged: onChanged),
+        const SizedBox(width: 8),
+        _ProviderDropdown(ctrl: ctrl, onChanged: onChanged),
       ],
     );
   }
@@ -171,11 +171,9 @@ class TicketFilterPanel extends StatelessWidget {
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(
-              child: _ProviderDropdown(ctrl: ctrl, onChanged: onChanged),
-            ),
-            const SizedBox(width: 8),
             _NoTiketChip(ctrl: ctrl, onChanged: onChanged),
+            const SizedBox(width: 8),
+            _ProviderDropdown(ctrl: ctrl, onChanged: onChanged),
           ],
         ),
         const SizedBox(height: 8),

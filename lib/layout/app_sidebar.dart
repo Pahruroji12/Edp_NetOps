@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../core/theme/app_colors.dart';
-import '../core/utils/responsive_helper.dart';
-import '../core/widgets/confirm_dialog.dart';
-import '../core/widgets/custom_snackbar.dart';
-import '../core/error/failures.dart';
-import '../core/permissions/feature_access.dart';
-import '../core/platform/feature_availability.dart';
+import 'package:edp_netops/core/theme/app_colors.dart';
+import 'package:edp_netops/core/utils/responsive_helper.dart';
+import 'package:edp_netops/core/widgets/confirm_dialog.dart';
+import 'package:edp_netops/core/widgets/custom_snackbar.dart';
+import 'package:edp_netops/core/error/failures.dart';
+import 'package:edp_netops/core/permissions/feature_access.dart';
+import 'package:edp_netops/core/platform/feature_availability.dart';
+import 'package:edp_netops/features/auth/data/auth_repository.dart';
 
-import '../features/auth/domain/auth_state.dart'; // ← ganti login_page import
-import '../features/auth/data/auth_repository.dart'; // ← logout lewat repository
+import 'widgets/sidebar_item.dart';
+import 'widgets/sidebar_header.dart';
+import 'widgets/sidebar_footer.dart';
+import 'widgets/sidebar_collapse_button.dart';
+import 'widgets/mobile_navigation_drawer.dart';
 
 class AppSidebar extends StatefulWidget {
   final String currentRoute; // Penanda menu mana yang sedang aktif
@@ -23,10 +27,9 @@ class AppSidebar extends StatefulWidget {
 
 class _AppSidebarState extends State<AppSidebar> {
   // ==========================================
-  // FUNGSI LOGOUT (Dari desain Mas Pahruroji)
+  // FUNGSI LOGOUT
   // ==========================================
   Future<void> _logout(BuildContext ctx) async {
-    // Simpan referensi router sebelum async gap — context bisa mati kapan saja
     final router = GoRouter.of(ctx);
 
     final result = await AuthRepository().signOut();
@@ -53,14 +56,12 @@ class _AppSidebarState extends State<AppSidebar> {
     );
 
     if (confirmed == true && mounted) {
-      // Tutup drawer SETELAH dialog selesai, SEBELUM logout
-      // agar context masih valid saat showConfirmDialog berjalan
       final isDesktop = context.isDesktop;
       if (!isDesktop) {
         Navigator.of(context).pop(); // Tutup drawer
       }
 
-      // Sedikit delay agar drawer animation selesai sebelum navigasi
+      // Delay agar drawer animation selesai sebelum navigasi
       await Future.delayed(const Duration(milliseconds: 150));
 
       if (mounted) {
@@ -71,232 +72,12 @@ class _AppSidebarState extends State<AppSidebar> {
 
   @override
   Widget build(BuildContext context) {
-    // KUNCI RESPONSIF: Gunakan ResponsiveHelper
     final isDesktop = context.isDesktop;
-    final sf = context.scaleFactor;
 
-    // ─── Ambil data user dari AuthState ──────────────────────────
-    final userRole = AuthState.instance.role;
-    final userName = AuthState.instance.name;
-    final userNik = AuthState.instance.nik;
-
-    // --- Logika Warna & Inisial Role ---
-    Color roleAccentD;
-    IconData roleIconD;
-    switch (userRole.toLowerCase()) {
-      case 'administrator':
-        roleAccentD = const Color(0xFFFF6B6B);
-        roleIconD = Icons.admin_panel_settings_outlined;
-        break;
-      case 'admin':
-        roleAccentD = const Color(0xFFFFB347);
-        roleIconD = Icons.manage_accounts_outlined;
-        break;
-      default:
-        roleAccentD = context.accentColor;
-        roleIconD = Icons.person_outline;
-    }
-
-    final nameParts = userName.trim().split(' ');
-    final initialsD = nameParts.length >= 2
-        ? '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase()
-        : userName.isNotEmpty
-        ? userName[0].toUpperCase()
-        : 'U';
-
-    // ==========================================
-    // KONTEN MENU UTAMA
-    // ==========================================
     final menuContent = Column(
       children: [
-        // ── HEADER DRAWER ──
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [roleAccentD.withOpacity(0.13), context.cardColor],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border(bottom: BorderSide(color: context.borderColor)),
-          ),
-          child: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16 * sf, 20 * sf, 16 * sf, 16 * sf),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            width: 48 * sf,
-                            height: 48 * sf,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  roleAccentD,
-                                  roleAccentD.withOpacity(0.55),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(18),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: roleAccentD.withOpacity(0.35),
-                                  blurRadius: 14,
-                                  offset: const Offset(0, 5),
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Text(
-                                initialsD,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18 * sf,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            right: -5,
-                            bottom: -5,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: context.surfaceColor,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: roleAccentD.withOpacity(0.5),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Icon(
-                                roleIconD,
-                                size: 12,
-                                color: roleAccentD,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF00E676).withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: const Color(0xFF00E676).withOpacity(0.3),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF00E676),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFF00E676,
-                                    ).withOpacity(0.7),
-                                    blurRadius: 5,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                            const Text(
-                              'Online',
-                              style: TextStyle(
-                                color: Color(0xFF00E676),
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    userName.isNotEmpty ? userName : 'User',
-                    style: TextStyle(
-                      color: context.textPrimary,
-                      fontSize: context.scaledFont(14),
-                      fontWeight: FontWeight.w800,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.badge_outlined,
-                        size: 12,
-                        color: context.textSecondary.withOpacity(0.6),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        userNik,
-                        style: TextStyle(
-                          color: context.textSecondary,
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: roleAccentD.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: roleAccentD.withOpacity(0.35)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(roleIconD, size: 11, color: roleAccentD),
-                        const SizedBox(width: 6),
-                        Text(
-                          userRole.toUpperCase(),
-                          style: TextStyle(
-                            color: roleAccentD,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+        const SidebarHeader(),
+        const SidebarCollapseButton(),
         const SizedBox(height: 12),
 
         // ── MENU LIST ──
@@ -304,17 +85,16 @@ class _AppSidebarState extends State<AppSidebar> {
           child: ListView(
             padding: EdgeInsets.zero,
             children: [
-              _buildDrawerTile(
+              SidebarItem(
                 icon: Icons.dashboard_outlined,
                 label: 'Dashboard',
                 isActive: widget.currentRoute == '/dashboard',
                 onTap: () {
-                  if (!isDesktop)
-                    Navigator.pop(context); // Tutup laci kalau di HP
+                  if (!isDesktop) Navigator.pop(context);
                   context.go('/dashboard');
                 },
               ),
-              _buildDrawerTile(
+              SidebarItem(
                 icon: Icons.store_outlined,
                 label: 'Data Toko',
                 isActive: widget.currentRoute == '/store-list',
@@ -323,8 +103,7 @@ class _AppSidebarState extends State<AppSidebar> {
                   context.go('/store-list');
                 },
               ),
-
-              _buildDrawerTile(
+              SidebarItem(
                 icon: Icons.confirmation_number_outlined,
                 label: 'History Ticket',
                 isActive: widget.currentRoute == '/ticket-history',
@@ -335,13 +114,10 @@ class _AppSidebarState extends State<AppSidebar> {
               ),
 
               // ── GRUP 1: NETWORK TOOLS ──
-              // Hanya muncul jika:
-              //   1. Platform mendukung (Desktop only, bukan Android/Web)
-              //   2. Role adalah admin/administrator
-              if (FeatureAccess.canShowNetworkTools) ...[
+              if (FeatureAccess.canShowNetworkTools &&
+                  FeatureAvailability.canUseNetworkTools) ...[
                 const SizedBox(height: 8),
-
-                _buildDrawerDropdown(
+                SidebarDropdown(
                   title: 'Network Tools',
                   icon: Icons.electrical_services_rounded,
                   isExpanded: [
@@ -349,9 +125,8 @@ class _AppSidebarState extends State<AppSidebar> {
                     '/scan-wdcp',
                   ].contains(widget.currentRoute),
                   children: [
-                    // Ping Scanner — hanya di Windows
                     if (FeatureAvailability.canUsePing)
-                      _buildDrawerTile(
+                      SidebarItem(
                         icon: Icons.network_check,
                         label: 'Ping Scanner',
                         isActive: widget.currentRoute == '/ping',
@@ -363,9 +138,8 @@ class _AppSidebarState extends State<AppSidebar> {
                           }
                         },
                       ),
-                    // Scan RbWDCP — Desktop only
                     if (FeatureAvailability.canUseWdcpScan)
-                      _buildDrawerTile(
+                      SidebarItem(
                         icon: Icons.security_rounded,
                         label: 'Scan RbWDCP',
                         isActive: widget.currentRoute == '/scan-wdcp',
@@ -383,17 +157,17 @@ class _AppSidebarState extends State<AppSidebar> {
               const SizedBox(height: 8),
 
               // ── GRUP 2: PENGATURAN & SISTEM ──
-              _buildDrawerDropdown(
+              SidebarDropdown(
                 title: 'Pengaturan & Sistem',
                 icon: Icons.manage_accounts_outlined,
                 isExpanded: [
                   '/profile',
                   '/settings',
-                  '/admin-panel',
+                  '/admin',
                   '/about',
                 ].contains(widget.currentRoute),
                 children: [
-                  _buildDrawerTile(
+                  SidebarItem(
                     icon: Icons.person_outline,
                     label: 'Profil Saya',
                     isActive: widget.currentRoute == '/profile',
@@ -405,9 +179,8 @@ class _AppSidebarState extends State<AppSidebar> {
                       }
                     },
                   ),
-                  // Settings — hanya administrator (super admin)
                   if (FeatureAccess.canShowSettings)
-                    _buildDrawerTile(
+                    SidebarItem(
                       icon: Icons.settings_outlined,
                       label: 'Setting',
                       isActive: widget.currentRoute == '/settings',
@@ -419,9 +192,8 @@ class _AppSidebarState extends State<AppSidebar> {
                         }
                       },
                     ),
-                  // Control Center — hanya administrator (super admin)
                   if (FeatureAccess.canShowAdminPanel)
-                    _buildDrawerTile(
+                    SidebarItem(
                       icon: Icons.admin_panel_settings_outlined,
                       label: 'Control Center',
                       isActive: widget.currentRoute == '/admin',
@@ -433,7 +205,7 @@ class _AppSidebarState extends State<AppSidebar> {
                         }
                       },
                     ),
-                  _buildDrawerTile(
+                  SidebarItem(
                     icon: Icons.info_outline,
                     label: 'Tentang Aplikasi',
                     isActive: widget.currentRoute == '/about',
@@ -451,31 +223,11 @@ class _AppSidebarState extends State<AppSidebar> {
           ),
         ),
 
-        // ── BAGIAN BAWAH (LOGOUT) ──
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 12),
-          height: 1,
-          color: context.borderColor,
-        ),
-        const SizedBox(height: 8),
-        _buildDrawerTile(
-          icon: Icons.logout_outlined,
-          label: 'Keluar Aplikasi',
-          iconColor: const Color(0xFFFF6B6B),
-          labelColor: const Color(0xFFFF6B6B),
-          onTap: () {
-            _showLogoutDialog();
-          },
-        ),
-        const SizedBox(height: 24),
+        SidebarFooter(onLogoutTap: _showLogoutDialog),
       ],
     );
 
-    // ==========================================
-    // RETURN WIDGET BERDASARKAN LAYAR
-    // ==========================================
     if (isDesktop) {
-      // Tampilan PC: Sidebar Permanen Kiri — lebar adaptive
       return Container(
         width: context.sidebarWidth,
         decoration: BoxDecoration(
@@ -485,95 +237,7 @@ class _AppSidebarState extends State<AppSidebar> {
         child: menuContent,
       );
     } else {
-      // Tampilan HP: Laci yang bisa ditarik
-      return Drawer(backgroundColor: context.surfaceColor, child: menuContent);
+      return MobileNavigationDrawer(child: menuContent);
     }
-  }
-
-  // ==========================================
-  // WIDGET HELPER
-  // ==========================================
-  Widget _buildDrawerDropdown({
-    required String title,
-    required IconData icon,
-    required bool isExpanded,
-    required List<Widget> children,
-  }) {
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        initiallyExpanded: isExpanded,
-        iconColor: context.accentColor,
-        collapsedIconColor: context.textSecondary,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 8.0),
-          child: Icon(
-            icon,
-            size: 20,
-            color: isExpanded ? context.accentColor : context.textSecondary,
-          ),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: isExpanded ? FontWeight.w700 : FontWeight.w600,
-            color: isExpanded ? context.accentColor : context.textPrimary,
-          ),
-        ),
-        childrenPadding: const EdgeInsets.only(bottom: 8),
-        children: children,
-      ),
-    );
-  }
-
-  Widget _buildDrawerTile({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Color? iconColor,
-    Color? labelColor,
-    bool isActive = false,
-    bool isSubMenu = false,
-  }) {
-    return Container(
-      margin: EdgeInsets.only(
-        left: isSubMenu ? 28 : 12,
-        right: 12,
-        bottom: 2,
-        top: 2,
-      ),
-      decoration: isActive
-          ? BoxDecoration(
-              color: context.accentColor.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: context.accentColor.withOpacity(0.2)),
-            )
-          : BoxDecoration(borderRadius: BorderRadius.circular(10)),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding: EdgeInsets.symmetric(horizontal: 12 * context.scaleFactor, vertical: 0),
-        dense: context.isCompact,
-        visualDensity: context.isCompact ? VisualDensity.compact : VisualDensity.standard,
-        leading: Icon(
-          icon,
-          color: isActive
-              ? context.accentColor
-              : (iconColor ?? context.textSecondary),
-          size: isSubMenu ? 18 : 20,
-        ),
-        title: Text(
-          label,
-          style: TextStyle(
-            color: isActive
-                ? context.accentColor
-                : (labelColor ?? context.textPrimary),
-            fontSize: 13,
-            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
-        onTap: onTap,
-      ),
-    );
   }
 }

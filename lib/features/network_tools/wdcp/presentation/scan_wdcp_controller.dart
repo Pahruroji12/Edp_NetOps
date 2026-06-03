@@ -1,9 +1,10 @@
-import 'dart:io';
+import 'package:edp_netops/core/platform/native_io.dart';
 import 'package:flutter/material.dart';
 
 import '../data/scan_rbwdcp_service.dart';
 import '../data/scan_wdcp_repository.dart';
 import '../../../../core/utils/notification_mixin.dart';
+import '../../../../core/utils/tool_helper.dart';
 
 /// ScanWdcpController — semua state dan logic untuk ScanWdcpPage.
 ///
@@ -146,9 +147,9 @@ class ScanWdcpController extends ChangeNotifier with NotificationMixin {
   }
 
   Future<void> launchWinbox(String ip) async {
-    const String winboxPath = r'D:\Edp NetOps\winbox.exe';
+    final winboxPath = await ToolHelper.getWinboxPath();
     if (!await File(winboxPath).exists()) {
-      notifyError('File winbox.exe tidak ditemukan!');
+      notifyError('File winbox.exe tidak ditemukan di: $winboxPath');
       return;
     }
 

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'package:edp_netops/core/platform/native_io.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 

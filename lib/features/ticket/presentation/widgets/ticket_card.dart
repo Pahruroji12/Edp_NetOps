@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive_helper.dart';
 import '../../../../core/permissions/permission_helper.dart';
+import '../../../../core/widgets/custom_snackbar.dart';
+import 'package:edp_netops/core/widgets/app_empty_state.dart';
 import '../../domain/ticket_model.dart';
 import '../../presentation/ticket_controller.dart';
 
@@ -35,6 +38,7 @@ class TicketCard extends StatefulWidget {
 
 class _TicketCardState extends State<TicketCard> {
   bool _isHovered = false;
+
 
   @override
   Widget build(BuildContext context) {
@@ -71,102 +75,159 @@ class _TicketCardState extends State<TicketCard> {
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Store code
-              SizedBox(
-                width: 90,
-                child: Text(
-                  t.storeCode,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: context.textPrimary,
-                    fontWeight: FontWeight.w600,
+              Row(
+                children: [
+                  // Store code
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      t.storeCode,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 12),
+                  const SizedBox(width: 12),
 
-              // Store name
-              Expanded(
-                flex: 3,
-                child: Text(
-                  t.storeName,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: context.textPrimary,
-                    fontWeight: FontWeight.w500,
+                  // Store name
+                  SizedBox(
+                    width: 200,
+                    child: Text(
+                      t.storeName,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 12),
+                  const SizedBox(width: 12),
 
-              // Provider
-              SizedBox(
-                width: 72,
-                child: _ProviderBadge(provider: t.provider),
-              ),
-              const SizedBox(width: 12),
-
-              // No. Tiket
-              Expanded(
-                flex: 2,
-                child: Text(
-                  noTiket.isEmpty ? '—' : noTiket,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: noTiket.isEmpty
-                        ? context.textSecondary.withOpacity(0.4)
-                        : context.textPrimary,
-                    fontWeight: FontWeight.w500,
-                    fontStyle: noTiket.isEmpty ? FontStyle.italic : FontStyle.normal,
+                  // Provider
+                  SizedBox(
+                    width: 70,
+                    child: _ProviderBadge(provider: t.provider),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 12),
+                  const SizedBox(width: 12),
 
-              // Status badge
-              SizedBox(
-                width: 90,
-                child: _StatusBadge(status: t.status, color: stColor),
-              ),
-              const SizedBox(width: 12),
-
-              // Date
-              SizedBox(
-                width: 130,
-                child: Text(
-                  createdAt,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: context.textSecondary,
+                  // No. Tiket
+                  SizedBox(
+                    width: 120,
+                    child: noTiket.isEmpty
+                        ? Text(
+                            '—',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: context.textSecondary.withOpacity(0.4),
+                              fontWeight: FontWeight.w500,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  noTiket,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: context.textPrimary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    Clipboard.setData(ClipboardData(text: noTiket)).then((_) {
+                                      CustomSnackBar.info('Nomor tiket berhasil disalin!');
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4),
+                                    child: Icon(
+                                      Icons.copy_rounded,
+                                      size: 12,
+                                      color: context.textSecondary.withOpacity(0.6),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
+                  const SizedBox(width: 12),
 
-              // PIC
-              SizedBox(
-                width: 80,
-                child: Text(
-                  createdBy,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: context.textSecondary,
+                  // Status badge
+                  SizedBox(
+                    width: 85,
+                    child: _StatusBadge(status: t.status, color: stColor),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
+                  const SizedBox(width: 12),
 
-              // Actions
-              _CompactActions(
-                onDetail: widget.onDetail,
-                onUpdate: widget.onUpdate,
-                onDelete: widget.onDelete,
+                  // Date
+                  SizedBox(
+                    width: 125,
+                    child: Text(
+                      createdAt,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.textSecondary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // PIC
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      createdBy,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.textSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Keterangan
+                  Expanded(
+                    child: Text(
+                      t.keterangan?.trim().isEmpty ?? true ? '—' : t.keterangan!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.textSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Actions
+                  SizedBox(
+                    width: 90,
+                    child: Center(
+                      child: _CompactActions(
+                        onDetail: widget.onDetail,
+                        onUpdate: widget.onUpdate,
+                        onDelete: widget.onDelete,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -221,81 +282,153 @@ class _TicketCardState extends State<TicketCard> {
           // Body — ticket + date + PIC
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isNarrow = constraints.maxWidth < 320;
-                if (isNarrow) {
-                  return Column(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isNarrow = constraints.maxWidth < 320;
+                    if (isNarrow) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.tag_rounded, size: 11, color: context.textSecondary),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  noTiket.isEmpty ? '— belum diisi —' : noTiket,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: noTiket.isEmpty
+                                        ? context.textSecondary.withOpacity(0.4)
+                                        : context.textPrimary,
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: noTiket.isEmpty ? FontStyle.italic : FontStyle.normal,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (noTiket.isNotEmpty) ...[
+                                const SizedBox(width: 4),
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () {
+                                      Clipboard.setData(ClipboardData(text: noTiket)).then((_) {
+                                        CustomSnackBar.info('Nomor tiket berhasil disalin!');
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.copy_rounded,
+                                        size: 11,
+                                        color: context.textSecondary.withOpacity(0.6),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(Icons.schedule_outlined, size: 11, color: context.textSecondary),
+                              const SizedBox(width: 4),
+                              Text(
+                                createdAt,
+                                style: TextStyle(fontSize: 10, color: context.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(Icons.tag_rounded, size: 11, color: context.textSecondary),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  noTiket.isEmpty ? '— belum diisi —' : noTiket,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: noTiket.isEmpty
+                                        ? context.textSecondary.withOpacity(0.4)
+                                        : context.textPrimary,
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: noTiket.isEmpty ? FontStyle.italic : FontStyle.normal,
+                                  ),
+                                   overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (noTiket.isNotEmpty) ...[
+                                const SizedBox(width: 4),
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () {
+                                      Clipboard.setData(ClipboardData(text: noTiket)).then((_) {
+                                        CustomSnackBar.info('Nomor tiket berhasil disalin!');
+                                      });
+                                    },
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4),
+                                      child: Icon(
+                                        Icons.copy_rounded,
+                                        size: 11,
+                                        color: context.textSecondary.withOpacity(0.6),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(Icons.schedule_outlined, size: 11, color: context.textSecondary),
+                        const SizedBox(width: 4),
+                        Text(
+                          createdAt,
+                          style: TextStyle(fontSize: 10, color: context.textSecondary),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                if (t.keterangan?.trim().isNotEmpty ?? false) ...[
+                  const SizedBox(height: 6),
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.tag_rounded, size: 11, color: context.textSecondary),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              noTiket.isEmpty ? '— belum diisi —' : noTiket,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: noTiket.isEmpty
-                                    ? context.textSecondary.withOpacity(0.4)
-                                    : context.textPrimary,
-                                fontWeight: FontWeight.w500,
-                                fontStyle: noTiket.isEmpty ? FontStyle.italic : FontStyle.normal,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                      Icon(
+                        Icons.description_outlined,
+                        size: 11,
+                        color: context.textSecondary,
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.schedule_outlined, size: 11, color: context.textSecondary),
-                          const SizedBox(width: 4),
-                          Text(
-                            createdAt,
-                            style: TextStyle(fontSize: 10, color: context.textSecondary),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          t.keterangan!,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: context.textSecondary,
                           ),
-                        ],
+                        ),
                       ),
                     ],
-                  );
-                }
-                return Row(
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Icon(Icons.tag_rounded, size: 11, color: context.textSecondary),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              noTiket.isEmpty ? '— belum diisi —' : noTiket,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: noTiket.isEmpty
-                                    ? context.textSecondary.withOpacity(0.4)
-                                    : context.textPrimary,
-                                fontWeight: FontWeight.w500,
-                                fontStyle: noTiket.isEmpty ? FontStyle.italic : FontStyle.normal,
-                              ),
-                               overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(Icons.schedule_outlined, size: 11, color: context.textSecondary),
-                    const SizedBox(width: 4),
-                    Text(
-                      createdAt,
-                      style: TextStyle(fontSize: 10, color: context.textSecondary),
-                    ),
-                  ],
-                );
-              },
+                  ),
+                ],
+              ],
             ),
           ),
 
@@ -504,17 +637,17 @@ class TicketTableHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _HeaderCell('Kode', width: 90, column: TicketSortColumn.storeCode, ctrl: ctrl),
+          _HeaderCell('Kode', width: 80, column: TicketSortColumn.storeCode, ctrl: ctrl),
           const SizedBox(width: 12),
-          _HeaderCell('Nama Toko', flex: 3, column: TicketSortColumn.storeName, ctrl: ctrl),
+          _HeaderCell('Nama Toko', width: 200, column: TicketSortColumn.storeName, ctrl: ctrl),
           const SizedBox(width: 12),
-          _HeaderCell('Provider', width: 72, column: TicketSortColumn.provider, ctrl: ctrl),
+          _HeaderCell('Provider', width: 70, column: TicketSortColumn.provider, ctrl: ctrl),
           const SizedBox(width: 12),
-          _HeaderCell('No. Tiket', flex: 2, column: TicketSortColumn.nomorTiket, ctrl: ctrl),
+          _HeaderCell('No. Tiket', width: 120, column: TicketSortColumn.nomorTiket, ctrl: ctrl),
           const SizedBox(width: 12),
-          _HeaderCell('Status', width: 90, column: TicketSortColumn.status, ctrl: ctrl),
+          _HeaderCell('Status', width: 85, column: TicketSortColumn.status, ctrl: ctrl),
           const SizedBox(width: 12),
-          _HeaderCell('Tanggal', width: 130, column: TicketSortColumn.createdAt, ctrl: ctrl),
+          _HeaderCell('Tanggal', width: 125, column: TicketSortColumn.createdAt, ctrl: ctrl),
           const SizedBox(width: 12),
           SizedBox(
             width: 80,
@@ -528,9 +661,21 @@ class TicketTableHeader extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Keterangan',
+              style: TextStyle(
+                fontSize: 10,
+                color: context.textSecondary,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
           const SizedBox(width: 8),
           SizedBox(
-            width: 80,
+            width: 90,
             child: Text(
               'Aksi',
               style: TextStyle(
@@ -551,15 +696,13 @@ class TicketTableHeader extends StatelessWidget {
 class _HeaderCell extends StatelessWidget {
   const _HeaderCell(
     this.label, {
-    this.width,
-    this.flex,
+    required this.width,
     required this.column,
     required this.ctrl,
   });
 
   final String label;
-  final double? width;
-  final int? flex;
+  final double width;
   final TicketSortColumn column;
   final TicketController ctrl;
 
@@ -595,8 +738,7 @@ class _HeaderCell extends StatelessWidget {
       ),
     );
 
-    if (width != null) return SizedBox(width: width, child: child);
-    return Expanded(flex: flex ?? 1, child: child);
+    return SizedBox(width: width, child: child);
   }
 }
 
@@ -612,41 +754,11 @@ class TicketEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: context.borderColor.withOpacity(0.08),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.inbox_outlined,
-              size: 40,
-              color: context.textSecondary.withOpacity(0.3),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            message ?? 'Tidak ada tiket ditemukan',
-            style: TextStyle(
-              color: context.textSecondary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle ?? 'Coba ubah filter atau kata kunci pencarian',
-            style: TextStyle(
-              color: context.textSecondary.withOpacity(0.5),
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
+    return AppEmptyState(
+      title: message ?? 'Tidak ada tiket ditemukan',
+      message: subtitle ?? 'Coba ubah filter atau kata kunci pencarian',
+      icon: Icons.inbox_outlined,
     );
   }
 }
+

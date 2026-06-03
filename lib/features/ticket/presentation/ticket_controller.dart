@@ -1,13 +1,12 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
+
 import '../domain/ticket_model.dart';
 import '../data/ticket_repository.dart';
 import '../../../core/error/failures.dart';
-import '../../../core/widgets/custom_snackbar.dart';
-import '../../auth/domain/auth_state.dart';
+
+import '../domain/ticket_ranking_result.dart';
+import '../domain/services/ticket_ranking_calculator.dart';
 
 /// Sort column identifiers for ticket table.
 enum TicketSortColumn {
@@ -21,9 +20,6 @@ enum TicketSortColumn {
 
 /// View mode for ranking tab.
 enum RankingViewMode { compact, table }
-
-/// Severity level for ranking items.
-enum SeverityLevel { critical, warning, stable }
 
 /// Quick filter preset periods.
 enum QuickFilterPeriod {
@@ -46,13 +42,6 @@ class TicketController extends ChangeNotifier {
   List<TicketModel> allTickets = [];
   List<TicketModel> filteredTickets = [];
   bool isLoading = true;
-
-  // Background Worker State
-  Map<String, dynamic>? workerStatus;
-  bool isWorkerLoading = false;
-  bool isSyncingWorker = false;
-  bool isWorkerApiReachable = false;
-  bool isHostMachine = false;
 
   String filterStatus = 'Semua';
   String filterProvider = 'Semua';
@@ -101,8 +90,18 @@ class TicketController extends ChangeNotifier {
     'Desember',
   ];
   static const monthNamesShort = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'Mei',
+    'Jun',
+    'Jul',
+    'Agu',
+    'Sep',
+    'Okt',
+    'Nov',
+    'Des',
   ];
 
   // ── Colors (soft enterprise palette) ──────────────────────────
@@ -113,11 +112,8 @@ class TicketController extends ChangeNotifier {
     _ => const Color(0xFF78909C),
   };
 
-  static SeverityLevel calculateSeverity(int total, int open) {
-    if (open >= 3 || total >= 5) return SeverityLevel.critical;
-    if (open >= 1 || total >= 3) return SeverityLevel.warning;
-    return SeverityLevel.stable;
-  }
+  static SeverityLevel calculateSeverity(int total, int open) =>
+      TicketRankingCalculator.calculateSeverity(total, open);
 
   static Color severityColor(SeverityLevel level) => switch (level) {
     SeverityLevel.critical => const Color(0xFFE57373),
@@ -139,8 +135,7 @@ class TicketController extends ChangeNotifier {
 
     final result = await _repo.fetchAll();
     result.fold(
-      (Failure failure) =>
-          debugPrint('Error load tickets: ${failure.message}'),
+      (Failure failure) => debugPrint('Error load tickets: ${failure.message}'),
       (tickets) {
         allTickets = tickets;
         applyFilter();
@@ -151,352 +146,11 @@ class TicketController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Ambil status monitoring dari Background Worker di Supabase dan cek apakah API aktif
-  Future<void> fetchWorkerStatus() async {
-    isWorkerLoading = true;
-    notifyListeners();
-
-    try {
-      final client = Supabase.instance.client;
-      
-      // 1. Ambil status dari database Supabase
-      final res = await client
-          .from('worker_status')
-          .select()
-          .eq('id', 'ticket-sync-worker')
-          .maybeSingle();
-      
-      Map<String, dynamic>? statusMap = res != null ? Map<String, dynamic>.from(res) : null;
-
-      // 2. Ambil URL API worker untuk dicek keaktifannya secara langsung
-      final rows = await client
-          .from('app_settings')
-          .select('key, value')
-          .eq('key', 'worker_api_url')
-          .maybeSingle();
-      
-      String workerUrl = 'http://localhost:8080';
-      if (rows != null && rows['value'] != null) {
-        workerUrl = rows['value'].toString().trim();
-      }
-      if (workerUrl.endsWith('/')) {
-        workerUrl = workerUrl.substring(0, workerUrl.length - 1);
-      }
-
-      // 3. Deteksi peran komputer ini: HOST (Komputer Utama) atau CLIENT (Komputer Lain)
-      final workerDir = await getWorkerPath();
-      isHostMachine = await Directory(workerDir).exists();
-      final bool isLocalhostUrl = workerUrl.contains('localhost') || workerUrl.contains('127.0.0.1');
-
-      // 4. Ping endpoint /status untuk memastikan proses worker benar-benar hidup secara fisik
-      isWorkerApiReachable = false;
-      if (!kIsWeb) {
-        // Kita hanya ping jika:
-        // A. Komputer ini adalah HOST (memiliki folder worker), ATAU
-        // B. URL API worker menggunakan IP remote (sehingga Client pun bisa ping komputer utama)
-        if (isHostMachine || !isLocalhostUrl) {
-          try {
-            final uri = Uri.parse('$workerUrl/status');
-            final httpClient = HttpClient();
-            httpClient.connectionTimeout = const Duration(milliseconds: 1500);
-            final request = await httpClient.getUrl(uri);
-            final response = await request.close();
-            if (response.statusCode == 200) {
-              isWorkerApiReachable = true;
-            }
-          } catch (_) {
-            isWorkerApiReachable = false;
-          }
-        } else {
-          // Jika komputer ini adalah CLIENT dan URL worker disetel ke localhost (default),
-          // client tidak bisa ping localhost-nya sendiri (karena worker ada di komputer utama).
-          // Maka kita asumsikan reachable agar status dari database Supabase asli tidak ter-override.
-          isWorkerApiReachable = true;
-        }
-      }
-
-      // 5. Override status Supabase ke 'unknown' (offline) jika host mendeteksi local api mati,
-      // atau jika client mendeteksi remote IP worker mati.
-      if (!isWorkerApiReachable) {
-        if (statusMap == null) {
-          statusMap = {'status': 'unknown'};
-        } else {
-          statusMap['status'] = 'unknown';
-        }
-      }
-
-      workerStatus = statusMap;
-    } catch (e) {
-      debugPrint('Error fetching worker status: $e');
-    } finally {
-      isWorkerLoading = false;
-      notifyListeners();
-    }
-  }
-
-  /// Pemicu sinkronisasi manual langsung ke Background Worker (Deno Server)
-  Future<void> triggerWorkerSync() async {
-    if (isSyncingWorker) return;
-    isSyncingWorker = true;
-    notifyListeners();
-
-    try {
-      final client = Supabase.instance.client;
-      final rows = await client
-          .from('app_settings')
-          .select('key, value')
-          .eq('key', 'worker_api_url')
-          .maybeSingle();
-      
-      String workerUrl = 'http://localhost:8080';
-      if (rows != null && rows['value'] != null) {
-        workerUrl = rows['value'].toString().trim();
-      }
-
-      if (workerUrl.endsWith('/')) {
-        workerUrl = workerUrl.substring(0, workerUrl.length - 1);
-      }
-
-      final uri = Uri.parse('$workerUrl/sync');
-      debugPrint('[Worker Trigger] Hitting sync endpoint: $uri');
-
-      if (kIsWeb) {
-        CustomSnackBar.info('Pemicu manual worker tidak didukung langsung dari Web. Silakan trigger endpoint /sync di server.');
-        return;
-      }
-
-      final httpClient = HttpClient();
-      httpClient.connectionTimeout = const Duration(seconds: 15);
-      
-      final request = await httpClient.postUrl(uri);
-      request.headers.contentType = ContentType.json;
-      final response = await request.close();
-      
-      final responseBody = await response.transform(utf8.decoder).join();
-      final decoded = jsonDecode(responseBody) as Map<String, dynamic>;
-
-      if (response.statusCode == 200) {
-        final count = decoded['updated_tickets_count'] ?? 0;
-        CustomSnackBar.success('Worker Sync Sukses! $count tiket baru disinkronisasi.');
-        await loadTickets();
-        await fetchWorkerStatus();
-      } else {
-        final err = decoded['error'] ?? 'Terjadi kesalahan internal server';
-        CustomSnackBar.error('Worker Sync Gagal: $err');
-      }
-    } catch (e) {
-      debugPrint('[Worker Trigger Error] $e');
-      CustomSnackBar.error('Gagal menghubungi Background Worker. Pastikan service Deno aktif di $e');
-    }
-  }
-
-  /// Mendapatkan path folder worker secara dinamis (dev/production)
-  static Future<String> getWorkerPath() async {
-    try {
-      final exeFile = File(Platform.resolvedExecutable);
-      final exeDir = exeFile.parent.path;
-      final prodPath = Directory('$exeDir/worker-ticket-sync');
-      if (await prodPath.exists()) {
-        return prodPath.path;
-      }
-    } catch (_) {}
-
-    final defaultProd = Directory(r'D:\Edp NetOps\worker-ticket-sync');
-    if (await defaultProd.exists()) {
-      return defaultProd.path;
-    }
-
-    final devPath = Directory(r'd:\DartProject\edp_netops\worker-ticket-sync');
-    if (await devPath.exists()) {
-      return devPath.path;
-    }
-
-    return r'D:\Edp NetOps\worker-ticket-sync';
-  }
-
-  /// Menjalankan Background Worker secara terpisah (detached & silent)
-  /// Menggunakan VBScript wrapper agar jendela CMD benar-benar tersembunyi di Windows.
-  Future<void> startBackgroundWorker() async {
-    if (kIsWeb) {
-      CustomSnackBar.info('Menyalakan worker tidak didukung dari web browser.');
-      return;
-    }
-
-    final workerDir = await getWorkerPath();
-    debugPrint('[Worker Manager] Starting worker at directory: $workerDir');
-
-    if (!await Directory(workerDir).exists()) {
-      CustomSnackBar.error('Folder worker tidak ditemukan di: $workerDir');
-      return;
-    }
-
-    try {
-      // Buat file VBScript pendukung jika belum ada
-      final vbsFile = File('$workerDir\\start_hidden.vbs');
-      final vbsContent = '''
-Set objFSO = CreateObject("Scripting.FileSystemObject")
-strPath = objFSO.GetParentFolderName(WScript.ScriptFullName)
-Set objShell = CreateObject("WScript.Shell")
-objShell.CurrentDirectory = strPath
-objShell.Run "cmd /c npm run start", 0, False
-''';
-      await vbsFile.writeAsString(vbsContent);
-
-      // Jalankan VBScript secara detached — ini akan menyembunyikan jendela CMD sepenuhnya
-      final process = await Process.start(
-        'wscript.exe',
-        [vbsFile.path],
-        mode: ProcessStartMode.detached,
-      );
-
-      debugPrint('[Worker Manager] Started hidden worker via VBS, PID: ${process.pid}');
-      CustomSnackBar.success('Background Worker berhasil dijalankan di latar belakang (silent)!');
-
-      // Tunggu 4 detik agar server booting, lalu ambil statusnya
-      await Future.delayed(const Duration(seconds: 4));
-      await fetchWorkerStatus();
-    } catch (e) {
-      debugPrint('[Worker Manager Error] $e');
-      CustomSnackBar.error('Gagal menyalakan worker secara otomatis: $e');
-    }
-  }
-
-  /// Mengecek apakah worker sudah jalan secara lokal, jika belum akan dijalankan secara otomatis (Silent).
-  /// Dipanggil otomatis pasca login sukses ke aplikasi.
-  static Future<void> autoStartWorkerIfNeeded() async {
-    if (kIsWeb) return;
-
-    if (!AuthState.instance.isAdmin) {
-      debugPrint('[Background Worker] User is not admin/administrator. Skip worker auto-start.');
-      return;
-    }
-
-    try {
-      final client = Supabase.instance.client;
-
-      // 1. Dapatkan URL API worker
-      final rows = await client
-          .from('app_settings')
-          .select('key, value')
-          .eq('key', 'worker_api_url')
-          .maybeSingle();
-
-      String workerUrl = 'http://localhost:8080';
-      if (rows != null && rows['value'] != null) {
-        workerUrl = rows['value'].toString().trim();
-      }
-      if (workerUrl.endsWith('/')) {
-        workerUrl = workerUrl.substring(0, workerUrl.length - 1);
-      }
-
-      // 2. Ping endpoint status local worker
-      bool isRunning = false;
-      try {
-        final uri = Uri.parse('$workerUrl/status');
-        final httpClient = HttpClient();
-        httpClient.connectionTimeout = const Duration(milliseconds: 1000);
-        final request = await httpClient.getUrl(uri);
-        final response = await request.close();
-        if (response.statusCode == 200) {
-          isRunning = true;
-        }
-      } catch (_) {
-        isRunning = false;
-      }
-
-      // 3. Jika sudah jalan, tidak perlu dijalankan ulang
-      if (isRunning) {
-        debugPrint('[Background Worker] Worker is already running. Skip auto-start.');
-        return;
-      }
-
-      // 4. Jika mati, jalankan via wscript.exe
-      final workerDir = await getWorkerPath();
-      if (!await Directory(workerDir).exists()) {
-        debugPrint('[Background Worker] Folder worker tidak ditemukan di: $workerDir. Skip auto-start.');
-        return;
-      }
-
-      final vbsFile = File('$workerDir\\start_hidden.vbs');
-      final vbsContent = '''
-Set objFSO = CreateObject("Scripting.FileSystemObject")
-strPath = objFSO.GetParentFolderName(WScript.ScriptFullName)
-Set objShell = CreateObject("WScript.Shell")
-objShell.CurrentDirectory = strPath
-objShell.Run "cmd /c npm run start", 0, False
-''';
-      await vbsFile.writeAsString(vbsContent);
-
-      await Process.start(
-        'wscript.exe',
-        [vbsFile.path],
-        mode: ProcessStartMode.detached,
-      );
-
-      debugPrint('[Background Worker] Auto-started background worker successfully at $workerDir');
-    } catch (e) {
-      debugPrint('[Background Worker] Error in autoStartWorkerIfNeeded: $e');
-    }
-  }
-
-  /// Menghentikan Background Worker secara graceful melalui endpoint /shutdown
-  Future<void> stopBackgroundWorker() async {
-    if (kIsWeb) {
-      CustomSnackBar.info('Menghentikan worker tidak didukung dari web browser.');
-      return;
-    }
-
-    try {
-      final client = Supabase.instance.client;
-      final rows = await client
-          .from('app_settings')
-          .select('key, value')
-          .eq('key', 'worker_api_url')
-          .maybeSingle();
-
-      String workerUrl = 'http://localhost:8080';
-      if (rows != null && rows['value'] != null) {
-        workerUrl = rows['value'].toString().trim();
-      }
-      if (workerUrl.endsWith('/')) {
-        workerUrl = workerUrl.substring(0, workerUrl.length - 1);
-      }
-
-      final uri = Uri.parse('$workerUrl/shutdown');
-      debugPrint('[Worker Manager] Sending shutdown to: $uri');
-
-      final httpClient = HttpClient();
-      httpClient.connectionTimeout = const Duration(seconds: 10);
-
-      final request = await httpClient.postUrl(uri);
-      request.headers.contentType = ContentType.json;
-      final response = await request.close();
-
-      final responseBody = await response.transform(utf8.decoder).join();
-      final decoded = jsonDecode(responseBody) as Map<String, dynamic>;
-
-      if (response.statusCode == 200 && decoded['success'] == true) {
-        CustomSnackBar.success('Worker berhasil dihentikan.');
-      } else {
-        CustomSnackBar.error('Gagal menghentikan worker: ${decoded['error'] ?? 'Unknown'}');
-      }
-
-      // Tunggu sebentar lalu refresh status
-      await Future.delayed(const Duration(seconds: 2));
-      await fetchWorkerStatus();
-    } catch (e) {
-      debugPrint('[Worker Stop Error] $e');
-      CustomSnackBar.error('Worker tidak merespon (mungkin sudah mati). Error: $e');
-      // Tetap refresh status
-      await fetchWorkerStatus();
-    }
-  }
-
-
   Future<void> updateTicket({
     required String id,
     required String nomorTiket,
     required String status,
+    required String keterangan,
   }) async {
     String finalStatus = status;
     final trimmedNo = nomorTiket.trim();
@@ -510,6 +164,7 @@ objShell.Run "cmd /c npm run start", 0, False
       id: id,
       nomorTiket: trimmedNo,
       status: finalStatus,
+      keterangan: keterangan.trim(),
     );
     await result.fold(
       (Failure failure) async =>
@@ -532,8 +187,7 @@ objShell.Run "cmd /c npm run start", 0, False
   void applyFilter() {
     final q = searchCtrl.text.toLowerCase();
     filteredTickets = allTickets.where((t) {
-      final matchStatus =
-          filterStatus == 'Semua' || t.status == filterStatus;
+      final matchStatus = filterStatus == 'Semua' || t.status == filterStatus;
       final matchProvider =
           filterProvider == 'Semua' || t.provider == filterProvider;
       final matchSearch =
@@ -542,9 +196,14 @@ objShell.Run "cmd /c npm run start", 0, False
           t.storeName.toLowerCase().contains(q) ||
           (t.nomorTiket ?? '').toLowerCase().contains(q);
       final matchPeriod = _matchesPeriod(t);
-      final matchNoTiket = !filterNoTiket ||
+      final matchNoTiket =
+          !filterNoTiket ||
           (t.nomorTiket == null || t.nomorTiket!.trim().isEmpty);
-      return matchStatus && matchProvider && matchSearch && matchPeriod && matchNoTiket;
+      return matchStatus &&
+          matchProvider &&
+          matchSearch &&
+          matchPeriod &&
+          matchNoTiket;
     }).toList();
     _applySorting();
     notifyListeners();
@@ -568,11 +227,17 @@ objShell.Run "cmd /c npm run start", 0, False
     // 0. Period start/end range takes top priority
     if (periodStart != null && periodEnd != null) {
       final start = DateTime(
-        periodStart!.year, periodStart!.month, periodStart!.day,
+        periodStart!.year,
+        periodStart!.month,
+        periodStart!.day,
       );
       final end = DateTime(
-        periodEnd!.year, periodEnd!.month, periodEnd!.day,
-        23, 59, 59,
+        periodEnd!.year,
+        periodEnd!.month,
+        periodEnd!.day,
+        23,
+        59,
+        59,
       );
       return dt.isAfter(start.subtract(const Duration(seconds: 1))) &&
           dt.isBefore(end.add(const Duration(seconds: 1)));
@@ -589,7 +254,9 @@ objShell.Run "cmd /c npm run start", 0, False
         customDateRange!.end.year,
         customDateRange!.end.month,
         customDateRange!.end.day,
-        23, 59, 59,
+        23,
+        59,
+        59,
       );
       return dt.isAfter(start.subtract(const Duration(seconds: 1))) &&
           dt.isBefore(end.add(const Duration(seconds: 1)));
@@ -617,8 +284,7 @@ objShell.Run "cmd /c npm run start", 0, False
 
     // 6. Legacy selectedMonth (used by ranking tab)
     if (selectedMonth != null) {
-      return dt.year == selectedMonth!.year &&
-          dt.month == selectedMonth!.month;
+      return dt.year == selectedMonth!.year && dt.month == selectedMonth!.month;
     }
 
     return true;
@@ -784,7 +450,7 @@ objShell.Run "cmd /c npm run start", 0, False
         QuickFilterPeriod.last7Days => '7 Hari Terakhir',
         QuickFilterPeriod.last30Days => '30 Hari Terakhir',
         QuickFilterPeriod.thisMonth =>
-            '${monthNames[DateTime.now().month - 1]} ${DateTime.now().year}',
+          '${monthNames[DateTime.now().month - 1]} ${DateTime.now().year}',
         QuickFilterPeriod.lastMonth => () {
           final lm = DateTime(DateTime.now().year, DateTime.now().month - 1);
           return '${monthNames[lm.month - 1]} ${lm.year}';
@@ -859,9 +525,7 @@ objShell.Run "cmd /c npm run start", 0, False
       return;
     }
     final idx = months.indexWhere(
-      (m) =>
-          m.year == selectedMonth!.year &&
-          m.month == selectedMonth!.month,
+      (m) => m.year == selectedMonth!.year && m.month == selectedMonth!.month,
     );
     if (idx < months.length - 1) setMonth(months[idx + 1]);
   }
@@ -874,9 +538,7 @@ objShell.Run "cmd /c npm run start", 0, False
       return;
     }
     final idx = months.indexWhere(
-      (m) =>
-          m.year == selectedMonth!.year &&
-          m.month == selectedMonth!.month,
+      (m) => m.year == selectedMonth!.year && m.month == selectedMonth!.month,
     );
     if (idx > 0) setMonth(months[idx - 1]);
   }
@@ -935,52 +597,8 @@ objShell.Run "cmd /c npm run start", 0, False
   }
 
   List<Map<String, dynamic>> buildRanking(List<TicketModel> data) {
-    final map = <String, Map<String, dynamic>>{};
-    for (final t in data) {
-      map.putIfAbsent(
-        t.storeCode,
-        () => {
-          'store_code': t.storeCode,
-          'store_name': t.storeName,
-          'total': 0,
-          'open': 0,
-          'in_progress': 0,
-          'resolved': 0,
-          'last_incident': null,
-          'tickets': <TicketModel>[],
-        },
-      );
-      map[t.storeCode]!['total'] =
-          (map[t.storeCode]!['total'] as int) + 1;
-
-      // Track last incident
-      final currentLast =
-          map[t.storeCode]!['last_incident'] as DateTime?;
-      if (t.createdAt != null &&
-          (currentLast == null || t.createdAt!.isAfter(currentLast))) {
-        map[t.storeCode]!['last_incident'] = t.createdAt;
-      }
-
-      // Collect tickets for expandable detail
-      (map[t.storeCode]!['tickets'] as List<TicketModel>).add(t);
-
-      switch (t.status) {
-        case 'Open':
-          map[t.storeCode]!['open'] =
-              (map[t.storeCode]!['open'] as int) + 1;
-        case 'In Progress':
-          map[t.storeCode]!['in_progress'] =
-              (map[t.storeCode]!['in_progress'] as int) + 1;
-        case 'Resolved':
-          map[t.storeCode]!['resolved'] =
-              (map[t.storeCode]!['resolved'] as int) + 1;
-      }
-    }
-    final list = map.values.toList()
-      ..sort(
-        (a, b) => (b['total'] as int).compareTo(a['total'] as int),
-      );
-    return list;
+    final rankings = TicketRankingCalculator.calculateRanking(data);
+    return rankings.map((r) => r.toMap()).toList();
   }
 
   /// Konversi ke List<Map> untuk ExportHelper (masih pakai Map)

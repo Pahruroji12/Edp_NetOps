@@ -4,491 +4,352 @@
 
 # EDP NetOps
 
-**Pusat Kendali IT Support & Network Operations Departemen EDP**
+**Platform Terintegrasi untuk IT Support & Network Operations Departemen EDP**
 
-*Sebuah platform terintegrasi yang dirancang khusus untuk memantau infrastruktur jaringan, mengelola data toko secara dinamis, mengotomatisasi sinkronisasi tiket gangguan, dan mempercepat tindakan operasional lapangan dalam satu dasbor modern.*
+EDP NetOps adalah platform monitoring dan manajemen operasional IT yang dirancang khusus untuk memfasilitasi kebutuhan Departemen EDP. Sistem ini membantu mengelola ratusan data jaringan toko/cabang, memantau riwayat tiket gangguan, menyediakan alat analisis data provider, serta mengotomatisasi pencatatan nomor tiket gangguan dari email provider ke database pusat.
+
+Aplikasi ini memiliki arsitektur modular yang terbagi menjadi aplikasi klien berbasis **Flutter** (sebelumnya berfokus pada Windows Desktop, kini dioptimalkan secara aman untuk lintas platform) dan layanan background sync daemon berbasis **Node.js/TypeScript** yang bertugas menyinkronkan email provider secara otomatis.
 
 ---
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev)
-[![Dart](https://img.shields.io/badge/Dart-3.9.2-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
-[![Supabase](https://img.shields.io/badge/Supabase-2.12.x-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.3.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![NodeJS](https://img.shields.io/badge/Node.js-20.x-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20Desktop-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://flutter.dev/desktop)
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=flat-square&logo=flutter&logoColor=white)](https://flutter.dev)
+[![Dart](https://img.shields.io/badge/Dart-%5E3.9.2-0175C2?style=flat-square&logo=dart&logoColor=white)](https://dart.dev)
+[![Supabase](https://img.shields.io/badge/Supabase-2.12.x-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3.x-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![NodeJS](https://img.shields.io/badge/Node.js-20.x-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 
 </div>
 
 ---
 
-## 📋 Daftar Isi
+## 📌 Overview
 
-1. [Deskripsi Project](#-deskripsi-project)
-2. [Fitur Utama](#-fitur-utama)
-3. [Arsitektur Sistem & Alur Kerja](#%EF%B8%8F-arsitektur-sistem--alur-kerja)
-4. [Teknologi yang Digunakan](#-teknologi-yang-digunakan)
-5. [Struktur Folder Project](#-struktur-folder-project)
-6. [Konfigurasi Database & Environment](#%EF%B8%8F-konfigurasi-database--environment)
-7. [Panduan Instalasi & Menjalankan Project](#-panduan-instalasi--menjalankan-project)
-8. [Panduan Build & Deploy](#-panduan-build--deploy)
-9. [Troubleshooting & Solusi](#-troubleshooting--solusi)
-10. [Kebijakan Keamanan (Security Notes)](#-kebijakan-keamanan-security-notes)
-11. [Rencana Pengembangan (Future Improvements)](#-rencana-pengembangan-future-improvements)
-12. [Kontribusi](#-kontribusi)
-13. [Lisensi](#-lisensi)
-14. [Author & Developer](#-author--developer)
+EDP NetOps dibangun untuk mengatasi tantangan operasional jaringan pada ratusan toko cabang. Tujuan utama aplikasi ini adalah:
+1. **Sentralisasi Data Jaringan Toko**: Menyimpan data IP gateway, routerboard, perangkat kasir, STB, hingga CCTV toko secara dinamis di database cloud.
+2. **Efisiensi Eskalasi Gangguan**: Mengotomatisasi siklus penanganan tiket gangguan internet (ISP) melalui worker pembaca email (IMAP) yang terhubung ke database.
+3. **Penyediaan Network Tools Terintegrasi**: Menyediakan alat utilitas jaringan langsung di aplikasi (multi-threaded ping scanner, FTP client, Mikrotik API) untuk mempercepat proses troubleshooting di lapangan.
 
 ---
 
-## 📖 Deskripsi Project
+## ✨ Key Features
 
-**EDP NetOps** adalah solusi sistem manajemen internal berskala enterprise yang dirancang khusus untuk memfasilitasi kebutuhan **IT Support & Network Operations di Departemen EDP**. Platform ini dikembangkan secara modular untuk menjamin efisiensi tinggi dalam memantau kesehatan jaringan ratusan toko, merespons kendala secara real-time, serta mengotomatisasi pencatatan tiket kendala provider.
+### 📊 Monitoring & Manajemen Toko
+* **Real-time Overview & Analytic Charts**: Ringkasan jumlah toko aktif, status online/offline, dan grafik sebaran jenis koneksi (FO, VSAT, GSM, XL).
+* **Instant Search & Filter**: Pencarian toko dengan cepat berdasarkan kode toko, nama toko, tipe koneksi, maupun status konektivitas.
+* **Perangkat Toko Details**: Informasi IP Address lengkap untuk router, WDCP, kasir (Station 1-5), STB, iKiosk, timbangan, dan CCTV.
+* **Integrasi Remote Tools**: Membuka aplikasi eksternal (Winbox, VNC, Telnet) langsung dari aplikasi klien melalui konfigurasi path lokal.
+* **Export Data Toko**: Ekspor data daftar toko ke file Microsoft Excel (`.xlsx`) secara rapi.
 
-Sistem ini terbagi menjadi dua komponen utama yang saling berkolaborasi:
-1. **EDP NetOps Client Application**: Aplikasi desktop native Windows berbasis **Flutter** yang menyajikan antarmuka visual (dashboard) interaktif, monitoring status perangkat toko, tool operasional (Winbox, VNC, Telnet, Ping), serta manajemen tiket gangguan.
-2. **EDP NetOps IMAP Ticket Sync Worker**: Layanan background daemon berbasis **TypeScript & Node.js** yang bertugas memantau email masuk (IMAP) dari berbagai provider internet ISP (Astinet, ICON, Fiberstar), mengekstrak nomor tiket dan kode toko secara otomatis menggunakan algoritma parsing regex cerdas, lalu menyinkronkannya langsung ke database **Supabase**.
+### 🎫 Tiket Gangguan & Sinkronisasi
+* **History Ticket Management**: Pencatatan tiket gangguan manual maupun otomatis dari provider internet (Astinet, ICON, Fiberstar).
+* **Automated Ticket Parsing**: Ekstraksi nomor tiket dan kode toko dari email masuk menggunakan worker berbasis IMAP secara berkala.
+* **ISP Failure Ranking**: Menyajikan peringkat toko atau provider yang paling sering mengalami kendala jaringan untuk kebutuhan audit.
+* **Notifikasi Email SMTP**: Mengirimkan email pembukaan/penutupan tiket eskalasi gangguan langsung dari aplikasi ke pihak provider ISP.
+* **Export Laporan Lintas Lembar**: Ekspor riwayat tiket gangguan ke file Excel dengan pemisahan sheet laporan detail dan rangkuman.
 
----
+### 🔌 Network Tools
+* **Multi-threaded Ping Scanner**: Melakukan ping secara massal ke IP Gateway, komputer kasir, STB, WDCP, maupun CCTV di toko tujuan.
+* **Scheduled Auto-Ping STB**: Pengecekan otomatis status STB toko secara berkala pada shift malam (00:00 - 03:59).
+* **Mikrotik API & WDCP Manager**: Membaca registration table wireless Mikrotik, melakukan whitelist MAC address pada Access List, serta memantau utilisasi CPU dan memori routerboard.
 
-## ✨ Fitur Utama
-
-### 🖥️ Dasbor Utama & Monitoring Toko
-* **Real-time Overview**: Menampilkan total toko aktif secara visual beserta pembagian jenis koneksi utama yang digunakan (Fiber Optik, VSAT, GSM, XL).
-* **Smart Search & Filter**: Pencarian toko dengan respon instan berdasarkan kode toko, nama toko, tipe koneksi, atau status online/offline.
-* **Informasi Perangkat Toko**: Menyimpan data teknis krusial secara lengkap (IP Gateway Mikrotik, IP VSAT, RB WDCP, Station 1-5, STB Kasir, iKiosk, Timbangan, CCTV).
-* **Integrasi Remote Tool**: Akses remote cepat ke Winbox, VNC, dan Telnet langsung dari aplikasi melalui path utility eksternal yang dapat disesuaikan.
-* **Export Data Dinamis**: Fitur export seluruh daftar dan detail data toko ke format spreadsheet Excel (`.xlsx`) dengan penataan tabel yang rapi.
-
-### 🎫 Manajemen Tiket Gangguan (History Ticket)
-* **Pencatatan Otomatis & Manual**: Tiket dapat dibuat secara manual melalui UI interaktif atau di-ingest secara otomatis dari inbox email provider oleh sistem Worker.
-* **Sistem Filter Komprehensif**: Filter tiket berdasarkan status (`Open`, `In Progress`, `Resolved`), ISP Provider, serta filter waktu (Bulan & Tahun).
-* **Analisis Data & Ranking**: Menyajikan peringkat (ranking) toko yang paling sering mengalami gangguan sebagai bahan evaluasi stabilitas jaringan toko.
-* **Email Notifikasi Otomatis**: Integrasi SMTP Mailer untuk mengirimkan notifikasi eskalasi tiket gangguan secara langsung ke email provider ISP.
-* **Export Laporan Multi-Sheet**: Export data tiket historis langsung ke dokumen Excel dengan pemisahan sheet laporan detail dan sheet rangkuman analitik.
-
-### 🌐 Network Tools (Windows Desktop Native)
-* **Ping Scanner Massal**: Mesin pemindai ICMP berbasis multi-threaded untuk memeriksa status koneksi IP Gateway, kasir (Station 1-5), STB, RB WDCP, hingga CCTV di seluruh toko secara cepat.
-* **Scheduled Auto-Ping STB**: Fitur pemantauan terjadwal khusus untuk STB toko pada shift malam (00:00 - 03:59), berguna mendeteksi perangkat offline sebelum jam operasional dimulai.
-* **Integrasi Mikrotik WDCP via API**:
-  * Membaca *Registration Table* (melihat daftar perangkat kasir yang terhubung secara nirkabel).
-  * Manajemen *Access List* (menambah/menghapus whitelist MAC Address perangkat kasir).
-  * Pengaturan *Default Authentication* (aktif/nonaktif keamanan koneksi dasar).
-  * Pemantauan resource Routerboard (CPU Load, Free Memory, Uptime).
-
-### 👤 Administrasi, Keamanan & Pengaturan
-* **Manajemen Profil Pengguna**: Fitur ganti kata sandi dengan enkripsi hash SHA-256 yang aman di sisi klien.
-* **Kontrol Panel Administrator**: Halaman khusus admin untuk memantau performa tim EDP, serta mengelola akun (tambah/hapus user).
-* **Audit Trail (Activity Logger)**: Pencatatan otomatis setiap aktivitas penting yang dilakukan pengguna (Login, Logout, Ping Scanner, Export Data) ke tabel log Supabase untuk kebutuhan audit.
-* **Konfigurasi Fleksibel**: Pengaturan parameter aplikasi seperti kredensial SMTP Email provider dan path binary software eksternal (Winbox, VNC, Telnet) yang disimpan persisten per perangkat.
-* **Dual Theme Engine**: Dukungan penuh tema Gelap (Dark Mode) dan Terang (Light Mode) yang nyaman di mata dan tersimpan secara otomatis antar-sesi.
+### 🛡️ Keamanan & Administrasi
+* **Role-based Access Control**: Membatasi halaman admin dan akses data sensitif berdasarkan peran pengguna (`user`, `admin`, `administrator`).
+* **Audit Trail (Activity Logs)**: Mencatat setiap aktivitas penting staf (seperti login, ekspor data, ping massal) ke database cloud.
+* **Dual Theme Engine**: Dukungan tema gelap (Dark Mode) dan tema terang (Light Mode) dengan penyimpanan preferensi lokal.
 
 ---
 
-## ⚙️ Arsitektur Sistem & Alur Kerja
+## 🧱 Project Architecture
 
-Platform EDP NetOps menerapkan arsitektur modular yang tersegregasi secara rapi. Aplikasi Flutter Client dibangun dengan pola **Feature-based Layered Architecture** (Clean Architecture) guna memisahkan urusan UI, logika bisnis, dan pengambilan data.
+Aplikasi klien EDP NetOps menerapkan pola **Feature-First** yang dipadukan dengan prinsip **Clean Architecture**. Pemisahan modul dilakukan berdasarkan fitur utama untuk mempermudah pemeliharaan jangka panjang.
 
-### 🔄 Alur Integrasi Tiket Otomatis
-
-```
-  [ Provider ISP ] ─── Sending Email ───► [ Email Server (IMAP) ]
-                                                   │
-                                            Fetched by IMAP
-                                                   │
-                                                   ▼
-                                      ┌────────────────────────┐
-                                      │  IMAP Sync Worker TS   │
-                                      │   - Parse Email Content│
-                                      │   - Match Store Code   │
-                                      │   - Extract Ticket No  │
-                                      └───────────┬────────────┘
-                                                  │
-                                             Syncs Data
-                                                  │
-                                                  ▼
-                                      ┌────────────────────────┐
-                                      │   Supabase Database    │
-                                      │   (Real-time State)    │
-                                      └───────────┬────────────┘
-                                                  │
-                                            Stream Updates
-                                                  │
-                                                  ▼
-                                      ┌────────────────────────┐
-                                      │  EDP NetOps Client     │
-                                      │  (Flutter Desktop App) │
-                                      └────────────────────────┘
-```
-
-### 🏛️ Detail Lapisan Aplikasi Client (Flutter)
-
-* **Presentation Layer**: Terdiri dari berkas *Page*, *Widget*, dan *Controller*. Logika tampilan dipisahkan menggunakan pola `ChangeNotifier` / `Controller` yang dipantau oleh `ListenableBuilder` pada berkas UI.
-* **Domain Layer**: Berisi pemodelan data (*Model*) serta manajemen state global (seperti `auth_state.dart`).
-* **Data Layer**: Berisi implementasi *Repository* dan *Service* yang berinteraksi langsung dengan REST API/Websocket Supabase dan sistem operasi lokal.
-* **Core Layer**: Menyimpan aset tema global, komponen UI pakai ulang (*custom widgets*), helper utilitas enkripsi, ekspor file, dan kelas utilitas platform.
-
----
-
-## 🛠️ Teknologi yang Digunakan
-
-### 📱 EDP NetOps Client (Flutter App)
-
-| Komponen / Library | Kegunaan Utama | Versi |
-| :--- | :--- | :--- |
-| **Flutter SDK** | Framework Utama (Cross-Platform) | `^3.x` |
-| **Dart SDK** | Bahasa Pemrograman | `^3.9.2` |
-| **Supabase Flutter** | Database Backend, Real-time Stream & Authentication | `^2.12.0` |
-| **Go Router** | Sistem Navigasi Deklaratif & Route Guarding | `^17.2.0` |
-| **Window Manager** | Kontrol Ukuran, Posisi & Frame Jendela Windows | `^0.5.1` |
-| **Teledart** | Integrasi Pengiriman Notifikasi via Telegram Bot | `^0.6.1` |
-| **Excel** | Pembuatan Dokumen Spreadsheets XLSX secara Native | `^4.0.6` |
-| **FTP Connect** | Client Protokol FTP untuk Transfer Berkas | `^2.0.10` |
-| **Dart Ping** | Utilitas Eksekusi Perintah ICMP Ping Native | `^9.0.1` |
-| **Mailer** | Pengiriman Email SMTP ke Pihak Ketiga (Provider) | `^7.1.0` |
-| **Google Fonts** | Pengaturan Tipografi UI yang Elegan & Konsisten | `^8.0.2` |
-
-### ⚙️ Background Ticket Sync Worker (TypeScript)
-
-| Library / Tool | Kegunaan Utama | Versi |
-| :--- | :--- | :--- |
-| **TypeScript** | Bahasa Pemrograman Utama (Typed JavaScript) | `^5.3.3` |
-| **Node.js** | Environment Runtime Eksekusi Worker | `v20.x` |
-| **Supabase JS Client** | Koneksi Client Database & Manipulasi Data Tabel | `^2.39.8` |
-| **ImapFlow** | Client IMAP Modern dengan Dukungan Async/Await | `^1.0.155` |
-| **Mailparser** | Parser Berkas Email IMAP Menjadi Struktur JSON | `^3.7.1` |
-| **TSX** | Eksekutor & Live Reloader TypeScript File secara Cepat | `^4.7.0` |
-
----
-
-## 📁 Struktur Folder Project
-
-Struktur berkas dan direktori dirancang dengan sangat rapi untuk memisahkan logika desktop client dengan background worker:
+### Struktur Folder Utama
 
 ```text
-edp_netops/
-├── assets/                          # Aset gambar & logo aplikasi
-│   └── logo.png                     # Logo utama EDP NetOps
-├── android/                         # Konfigurasi platform Android
-├── ios/                             # Konfigurasi platform iOS
-├── web/                             # Konfigurasi platform Flutter Web
-├── windows/                         # Konfigurasi native platform Windows Desktop
-├── lib/                             # Kode Sumber Flutter Client
-│   ├── main.dart                    # Entry point aplikasi (Inisialisasi dasar saja)
-│   ├── app/                         # Konfigurasi aplikasi tingkat atas (App Widget, Router)
-│   │   ├── app.dart                 # Root MaterialApp.router & Setup Tema
-│   │   └── app_router.dart          # Konfigurasi rute GoRouter & AuthGuard
-│   ├── core/                        # Modul pendukung global (Shared Core)
-│   │   ├── constants/               # Konstanta global aplikasi
-│   │   ├── env/                     # Loader berkas konfigurasi .env
-│   │   ├── guards/                  # Proteksi akses rute berdasarkan izin
-│   │   ├── theme/                   # Pengaturan warna & ThemeData (Dark/Light)
-│   │   ├── utils/                   # Helper enkripsi, export Excel, dll.
-│   │   └── widgets/                 # Reusable widget seperti Custom Snackbar, dll.
-│   ├── layout/                      # Tata letak antarmuka utama (Sidebar & Base Layout)
-│   └── features/                    # Direktori fitur utama aplikasi (Clean Architecture)
-│       ├── auth/                    # Modul Login, Autentikasi, & State Akun
-│       ├── dashboard/               # Modul Dasbor Utama & List Toko Ringkas
-│       ├── network_tools/           # Modul Alat Jaringan (Ping Scanner, FTP, Mikrotik WDCP)
-│       ├── store/                   # Modul Manajemen & CRUD Data Toko Lengkap
-│       ├── ticket/                  # Modul Pencatatan Tiket & Email Provider
-│       ├── profile/                 # Halaman detail akun & admin panel control
-│       └── settings/                # Halaman pengaturan SMTP & path software remote
-│
-└── worker-ticket-sync/              # Kode Sumber Background IMAP Sync Worker
-    ├── src/                         # Berkas Utama TypeScript
-    │   ├── main.ts                  # Entry point scheduler & inisialisasi server worker
-    │   ├── config.ts                # Loader parameter lingkungan .env worker
-    │   ├── server.ts                # Server HTTP minimal untuk REST monitoring & status
-    │   ├── imapClient.ts            # Client penghubung ke Mailbox IMAP
-    │   ├── supabaseClient.ts        # Client koneksi terpusat ke database Supabase
-    │   ├── syncTicketEmail.ts       # Mesin logika sinkronisasi email-ke-tabel
-    │   ├── ticketParser.ts          # Algoritma ekstraksi kode toko & nomor tiket
-    │   ├── workerStatusService.ts   # Updater detak jantung status worker ke database
-    │   └── types.ts                 # Definisi tipe data & antarmuka TypeScript
-    ├── package.json                 # Skrip NPM & dependensi Node.js worker
-    ├── tsconfig.json                # Konfigurasi kompilasi TypeScript Compiler
-    └── .env.example                 # Contoh templat konfigurasi variabel worker
+lib/
+├── app/                  # Konfigurasi rute (GoRouter) dan root MaterialApp
+├── layout/               # Kerangka tampilan utama, sidebar navigasi, dan base layout
+├── core/                 # Shared utilities, tema, widget global, platform helper & guards
+└── features/             # Direktori fitur utama aplikasi
+    ├── auth/             # Logika login, registrasi, dan manajemen session user
+    ├── dashboard/        # Beranda ringkasan monitoring toko dan grafik sebaran koneksi
+    ├── network_tools/    # Utilitas teknis (FTP Client, Ping Scanner, Mikrotik WDCP)
+    ├── profile/          # Pengaturan profil pengguna dan kontrol admin panel
+    ├── settings/         # Konfigurasi SMTP email, path eksternal tools, & ganti tema
+    ├── store/            # Pengelolaan data toko (CRUD data teknis jaringan toko)
+    └── ticket/           # Pengelolaan log tiket gangguan, statistik, dan eskalasi email
 ```
+
+* **Presentation Layer**: Terdiri dari berkas *Page*, *Widget*, dan *Controller* (menggunakan pola `ChangeNotifier` untuk manajemen state).
+* **Domain & Data Layer**: Bertanggung jawab untuk mendefinisikan pemodelan data (*Model*) dan berinteraksi dengan API Supabase (`SupabaseClient`).
+* **Core Layer**: Menyimpan fungsi utilitas yang bersifat global, enkripsi data lokal, ekspor file Excel, tema aplikasi, serta pemisah akses fitur per platform.
 
 ---
 
-## 🖥️ Konfigurasi Database & Environment
+## 🖥️ Platform Support
 
-### 1. Setup Variabel Lingkungan (.env)
+Aplikasi klien dikembangkan agar dapat berjalan secara lintas platform. Namun, beberapa fitur teknis tingkat rendah yang memerlukan akses sistem operasi dibatasi melalui platform guarding (`FeatureAvailability`).
 
-Buatlah berkas bernama `.env` pada folder root project untuk konfigurasi **Flutter Client**:
+| Fitur / Modul | Windows Desktop | Android | iOS | Web |
+| :--- | :---: | :---: | :---: | :---: |
+| **Auth, Dashboard & Store CRUD** | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| **Ticket History & Log** | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| **Email SMTP Escalar (Mailer)** | ✅ Full | ✅ Full | ✅ Full | ❌ Limited (CORS/Web Guard) |
+| **Export File (.xlsx / .csv)** | ✅ Direct System | ✅ Share/Save | ✅ Share/Save | ❌ Browser Download Only |
+| **FTP Client & Mikrotik API** | ✅ Native Socket | ❌ No | ❌ No | ❌ No |
+| **Ping Scanner (Multi-threaded)**| ✅ OS Process | ❌ No | ❌ No | ❌ No |
+| **External Remote Launchers** | ✅ Winbox/VNC/Telnet | ❌ No | ❌ No | ❌ No |
+| **Auto Update Service** | ✅ Executable Update | ✅ APK Installer | ❌ No | ❌ No |
+| **Worker Control & Monitor** | ✅ Manager UI | ❌ Monitor Only | ❌ Monitor Only | ❌ Monitor Only |
 
+> [!NOTE]
+> Fitur-fitur yang bernotasi **Desktop-Only** secara aman dinonaktifkan di mobile/web menggunakan runtime check terpusat pada file `lib/core/platform/feature_availability.dart` untuk mencegah runtime crash akibat pemanggilan library native.
+
+---
+
+## ⚙️ Tech Stack
+
+### Aplikasi Klien (Flutter)
+* **Framework**: Flutter SDK `^3.x` / Dart SDK `^3.9.2`
+* **Database & Auth**: `supabase_flutter: ^2.12.0` (Real-time DB stream, Auth, & Storage)
+* **Routing & State**: `go_router: ^17.2.0` & `ChangeNotifier` / `ListenableBuilder`
+* **Visualisasi & Excel**: `fl_chart: ^1.2.0` & `excel: ^4.0.6`
+* **Utilitas Jaringan**: `dart_ping: ^9.0.1` & `ftpconnect: ^2.0.10`
+* **Layanan Email SMTP**: `mailer: ^7.1.0`
+* **UI & Integrasi OS**: `window_manager: ^0.5.1`, `desktop_drop: ^0.7.1`, `google_fonts: ^8.0.2`
+
+### Background Sync Worker (Node.js & TypeScript)
+* **Runtime**: Node.js `v20.x` & TypeScript `^5.3.3`
+* **Database Client**: `@supabase/supabase-js: ^2.39.8`
+* **Protokol IMAP**: `imapflow: ^1.0.155`
+* **Email Parser**: `mailparser: ^3.7.1`
+* **Runtime Exec**: `tsx: ^4.7.0` (Development live reloader)
+
+---
+
+## 🚀 Getting Started
+
+### Prasyarat Pengembangan
+Sebelum memulai pengembangan, pastikan perangkat Anda telah terpasang:
+* **Flutter SDK** (Direkomendasikan versi `3.22.x` atau ke atas)
+* **Node.js** (Versi `v18.x` atau `v20.x` LTS)
+* **Visual Studio 2022** (dengan beban kerja *Desktop Development with C++* aktif untuk pengembangan di Windows)
+* **Git**
+
+---
+
+### Panduan Instalasi Aplikasi Klien (Flutter)
+
+1. **Clone Repositori**
+   ```bash
+   git clone <repository-url>
+   cd edp_netops
+   ```
+
+2. **Ambil Dependensi Package**
+   ```bash
+   flutter pub get
+   ```
+
+3. **Siapkan Konfigurasi Environment**
+   Salin file `.env.example` menjadi file `.env` baru pada root project:
+   ```bash
+   cp .env.example .env
+   ```
+   *Edit file `.env` tersebut dan masukkan kredensial Supabase Anda.*
+
+4. **Jalankan Aplikasi**
+   * Untuk Windows Desktop:
+     ```bash
+     flutter run -d windows
+     ```
+   * Untuk Mobile (Android / iOS):
+     ```bash
+     flutter run
+     ```
+
+---
+
+## 🔐 Environment Configuration
+
+Aplikasi memisahkan konfigurasi sensitif menggunakan file `.env` di masing-masing direktori proyek.
+
+### Konfigurasi `.env` Klien (Flutter - Root Folder)
 ```env
-SUPABASE_URL=https://id-project-anda.supabase.co
-SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_URL=https://<your-project-id>.supabase.co
+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI...
 ```
+*Catatan: Pada platform Desktop, file `.env` dibaca secara dinamis dari samping file executable saat dijalankan dalam mode rilis, guna meningkatkan keamanan kredensial.*
 
-Buat juga berkas `.env` di dalam sub-direktori `worker-ticket-sync/` untuk konfigurasi **Background Worker**:
-
+### Konfigurasi `.env` Background Worker (Folder `worker-ticket-sync/`)
 ```env
-# Kredensial Supabase (Wajib menggunakan Service Role Key untuk bypass RLS)
-SUPABASE_URL=https://id-project-anda.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_URL=https://<your-project-id>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5c... # Wajib untuk bypass RLS
 
-# Port Server HTTP Monitoring
 PORT=8080
-
-# Interval Auto-Sync (dalam satuan menit)
 SYNC_INTERVAL_MINUTES=10
 
-# Jam Operasional Sync Worker (Format Desimal, contoh 22.5 = 22:30 WIB)
+# Jam Operasional Sync Worker (Format Desimal, contoh 22.5 = 22:30)
 WORKING_HOUR_START=6
 WORKING_HOUR_END=22.5
 
-# Konfigurasi Akun IMAP (Opsional, dapat diletakkan di tabel app_settings Supabase)
-IMAP_HOST=imap.example.com
+# Konfigurasi IMAP Server (Dapat juga diatur via tabel app_settings di database)
+IMAP_HOST=imap.gmail.com
 IMAP_PORT=993
-IMAP_USER=support-netops@example.com
-IMAP_PASS=password-email-anda
+IMAP_USER=your-email@example.com
+IMAP_PASS=your-app-password
 IMAP_SECURE=true
 ```
 
 > [!WARNING]
-> Jangan pernah mengunggah (*commit*) berkas `.env` ke repositori publik seperti GitHub karena berisi kredensial sensitif. Berkas tersebut sudah otomatis dikecualikan lewat berkas `.gitignore`.
-
-### 2. Skema Tabel Database Supabase
-
-Untuk mendukung fungsionalitas penuh aplikasi EDP NetOps, pastikan tabel-tabel berikut telah dikonfigurasi di PostgreSQL database Supabase Anda:
-
-#### Tabel `profiles`
-Menyimpan data otorisasi dan profil dari staf operasional EDP.
-* `id` (`uuid`, Primary Key, Foreign Key ke `auth.users`)
-* `nik` (`text`, Nomor Induk Karyawan unik)
-* `nama` (`text`, Nama lengkap staf)
-* `role` (`text`, Hak akses: `user` / `admin` / `administrator`)
-* `is_online` (`boolean`, Menandakan status aktif di aplikasi)
-* `last_active` (`timestamp with time zone`, Detak waktu aktif terakhir)
-
-#### Tabel `stores`
-Menyimpan parameter teknis infrastruktur jaringan di masing-masing lokasi toko.
-* `id` (`uuid`, Primary Key)
-* `store_code` (`text`, Kode toko unik, contoh: `T567` atau `TGPJ`)
-* `store_name` (`text`, Nama lengkap toko)
-* `is_online` (`boolean`, Status jaringan toko saat pemindaian terakhir)
-* `connection_type` (`text`, Jalur koneksi utama: `FO` / `VSAT` / `GSM` / `XL`)
-* `connection_backup` (`text`, Jalur koneksi cadangan)
-* `ip_gateway` (`text`, IP Router Mikrotik)
-* `ip_rb_wdcp` (`text`, IP Router Board Wireless)
-* `ip_vsat` (`text`, IP modem VSAT)
-* `ip_station_1` s.d `ip_station_5` (`text`, IP komputer kasir/backoffice)
-* `ip_stb` (`text`, IP Set Top Box media)
-* `ip_ikiosk` (`text`, IP perangkat informasi harga)
-* `ip_timbangan` (`text`, IP timbangan digital toko)
-* `ip_cctv_1` s.d `ip_cctv_2` (`text`, IP kamera CCTV pemantau)
-
-#### Tabel `ticket_logs`
-Menyimpan riwayat tiket gangguan jaringan ISP untuk analisis performa penyedia internet.
-* `id` (`uuid`, Primary Key)
-* `store_code` (`text`, Kode toko terdampak)
-* `store_name` (`text`, Nama toko terdampak)
-* `provider` (`text`, ISP bersangkutan: `Astinet` / `ICON` / `Fiberstar`)
-* `nomor_tiket` (`text`, Nomor resmi tiket pelaporan gangguan)
-* `status` (`text`, Status penanganan: `Open` / `In Progress` / `Resolved`)
-* `created_by` (`text`, Staf pembuat tiket / `System Worker`)
-* `created_at` (`timestamp with time zone`, Waktu pembukaan tiket)
-
-#### Tabel `activity_logs`
-Merekam jejak audit keamanan seluruh aktivitas pengguna sistem.
-* `id` (`uuid`, Primary Key)
-* `user_name` (`text`, Staf pelaku aktivitas)
-* `user_role` (`text`, Role dari pelaku)
-* `action_type` (`text`, Jenis aksi: `LOGIN`, `LOGOUT`, `PING SCAN`, `EXPORT`, dll.)
-* `description` (`text`, Rincian deskripsi mengenai tindakan yang dilakukan)
-* `created_at` (`timestamp with time zone`, Waktu terjadinya log)
-
-#### Tabel `app_settings`
-Menyimpan konfigurasi aplikasi global secara dinamis dan aman.
-* `key` (`text`, Nama kunci konfigurasi, Primary Key)
-* `value` (`text`, Nilai string konfigurasi)
+> Jangan pernah mengunggah atau melakukan commit file `.env` ke repositori publik. Pastikan file tersebut terdaftar di dalam `.gitignore`.
 
 ---
 
-## 🚀 Panduan Instalasi & Menjalankan Project
+## 🧩 Worker Ticket Sync
 
-### Prerequisites
-Sebelum memulai, pastikan lingkungan pengembangan Anda telah terpasang perkakas berikut:
-* **Flutter SDK** (Versi minimal `3.22.x` direkomendasikan)
-* **Dart SDK** (Versi minimal `3.9.2` atau bawaan Flutter)
-* **Node.js Runtime** (Versi `v18.x` atau `v20.x` LTS)
-* **Visual Studio 2022** (dengan beban kerja *Desktop Development with C++* aktif, untuk build aplikasi desktop di Windows)
-* **Git** untuk pengelolaan repositori
+Layanan background worker terletak di folder `worker-ticket-sync/` dan berjalan secara terpisah dari siklus hidup aplikasi klien Flutter.
 
----
-
-### A. Konfigurasi & Menjalankan Flutter Client
-
+### Menjalankan Worker di Lingkungan Pengembangan
 ```bash
-# 1. Clone repositori ke penyimpanan lokal Anda
-git clone https://github.com/Pahruroji12/edp_netops.git
-cd edp_netops
-
-# 2. Ambil seluruh pustaka dependensi Flutter
-flutter pub get
-
-# 3. Buat dan sesuaikan berkas .env
-cp .env.example .env
-# [Lakukan pengeditan pada berkas .env menggunakan editor teks Anda]
-
-# 4. Buat aset ikon peluncur aplikasi (Opsional)
-dart run flutter_launcher_icons
-
-# 5. Jalankan aplikasi dalam mode pengembangan (Windows Desktop)
-flutter run -d windows
-```
-
-Untuk meluncurkan proses pengembangan dengan debugger aktif dan fitur *Hot Reload* penuh:
-```bash
-flutter run -d windows --debug
-```
-
----
-
-### B. Konfigurasi & Menjalankan Background Ticket Sync Worker
-
-```bash
-# 1. Navigasi masuk ke direktori background worker
 cd worker-ticket-sync
-
-# 2. Pasang seluruh pustaka dependensi Node.js
 npm install
-
-# 3. Buat dan sesuaikan berkas .env milik worker
-cp .env.example .env
-# [Buka berkas .env worker dan lengkapi kredensial Supabase & IMAP Anda]
-
-# 4. Jalankan Worker pada lingkungan lokal dalam mode Live Reload (Development)
 npm run dev
 ```
 
-Untuk menjalankan Worker secara langsung tanpa kompilasi manual dalam mode produksi lokal:
+### Menjalankan Worker di Lingkungan Produksi
+Untuk server produksi (seperti VPS Linux atau server internal Windows), direkomendasikan melakukan kompilasi TypeScript terlebih dahulu:
 ```bash
-npm run start
-```
-
----
-
-## 📦 Panduan Build & Deploy
-
-### 1. Mengompilasi Rilis Flutter Client (Windows Desktop)
-
-Untuk mendistribusikan aplikasi EDP NetOps ke staf EDP di lapangan, kompilasi aplikasi ke dalam bentuk file binary executable:
-
-```bash
-# Kompilasi ke binary rilis Windows
-flutter build windows --release
-```
-
-Hasil kompilasi final yang siap didistribusikan akan berada di direktori:
-`build/windows/x64/runner/Release/`
-
-> [!TIP]
-> Agar distribusi ke staf operasional lebih profesional, Anda dapat membungkus seluruh isi folder `Release/` menjadi satu installer berkas tunggal (.exe) menggunakan alat bantu pembuat installer pihak ketiga seperti **Inno Setup** atau **Advanced Installer**.
-
----
-
-### 2. Mengompilasi & Menyebarkan Ticket Sync Worker
-
-Untuk menyebarkan worker ke server lokal atau VPS Windows/Linux agar berjalan terus menerus secara independen:
-
-```bash
-# 1. Masuk ke direktori worker
-cd worker-ticket-sync
-
-# 2. Kompilasi kode TypeScript menjadi JavaScript murni (CommonJS)
 npm run build
-
-# 3. Jalankan aplikasi hasil kompilasi dari folder dist/
 npm run serve
 ```
 
-Agar proses di server tetap hidup meskipun terminal ditutup, Anda direkomendasikan menjalankan worker menggunakan manager proses seperti **PM2**:
+### Rekomendasi Menjalankan dengan PM2
+Agar proses worker tetap hidup di background server:
 ```bash
-# Daftarkan dan jalankan worker dengan PM2
-pm2 start dist/main.js --name "edp-ticket-worker"
-
-# Menyimpan konfigurasi agar otomatis berjalan saat server restart/reboot
+pm2 start dist/main.js --name "netops-ticket-worker"
 pm2 save
 pm2 startup
 ```
 
----
-
-## 🔍 Troubleshooting & Solusi
-
-### ❌ Masalah 1: Kesalahan Kompilasi "Windows SDK Not Found" atau "Visual Studio C++ Desktop workload"
-* **Penyebab**: Perangkat Anda belum terpasang compiler C++ yang dibutuhkan untuk mengompilasi kode program C++ milik engine Flutter Windows.
-* **Solusi**: Buka *Visual Studio Installer*, klik modify pada versi Visual Studio Anda, lalu centang bagian **Desktop development with C++**. Pastikan juga *Windows 10/11 SDK* terpilih di panel detail sebelah kanan, kemudian selesaikan instalasi/pembaruan.
-
-### ❌ Masalah 2: Gagal Melakukan Operasi Ping pada Mesin Pemindai Jaringan (STB Offline / Timeout)
-* **Penyebab**: Sistem operasi Windows memerlukan izin khusus (Privilege ICMP) untuk mengirim paket ICMP ping massal atau firewall lokal toko memblokir permintaan ICMP masuk.
-* **Solusi**:
-  1. Pastikan Anda menjalankan aplikasi EDP NetOps dengan hak akses administrator (*Run as Administrator*).
-  2. Pastikan alamat IP perangkat (STB/CCTV) berada dalam segmen jaringan VPN/SD-WAN yang sama dan tidak diblokir oleh rules Mikrotik internal.
-
-### ❌ Masalah 3: Autentikasi Supabase Gagal / Mengalami Loop di Halaman Login
-* **Penyebab**: Konfigurasi kunci URL atau anon key pada `.env` salah, atau proyek Supabase Anda sedang dalam mode ditangguhkan (*paused*) oleh platform.
-* **Solusi**: Periksa kembali berkas `.env` di folder utama aplikasi. Pastikan isi parameter URL dan kunci publik anonim sesuai dengan yang tertera di menu *Settings > API* pada dashboard Supabase Anda.
-
-### ❌ Masalah 4: Sync Worker Tidak Menarik Email Apapun dari Mailbox
-* **Penyebab**: Waktu eksekusi worker berada di luar rentang operasional yang diizinkan (parameter `WORKING_HOUR_START` dan `WORKING_HOUR_END`), atau port IMAP diblokir oleh firewall server Anda.
-* **Solusi**: Sesuaikan jam operasional pada berkas `.env` worker agar mencakup jam pengetesan Anda saat ini. Pastikan pula konfigurasi port IMAP Anda adalah `993` (untuk SSL/TLS aman) atau `143` (tanpa SSL).
+### Catatan Penting
+* Worker **tidak dibundel** ke dalam instalasi aplikasi mobile (Android/iOS).
+* Worker sebaiknya dijalankan di server operasional yang aktif 24 jam atau selama jam operasional yang ditentukan (`WORKING_HOUR_START` hingga `WORKING_HOUR_END`).
+* Aplikasi klien Flutter cukup memantau status keaktifan worker dan membaca data tiket yang telah di-sync langsung dari tabel database Supabase.
 
 ---
 
-## 🔒 Kebijakan Keamanan (Security Notes)
+## 🧪 Testing & Analysis
 
-1. **Proteksi Kredensial Desktop (.env)**: Pada platform Windows Desktop, berkas konfigurasi `.env` dibaca secara dinamis dari folder eksternal aplikasi saat runtime, bukan dibungkus secara permanen di dalam binary rilis. Hal ini mencegah dekompilasi aplikasi yang dapat membocorkan kredensial Supabase.
-2. **Supabase Row Level Security (RLS)**: Sangat direkomendasikan untuk mengaktifkan RLS pada seluruh tabel di dashboard Supabase. Gunakan aturan otorisasi berbasis peran user (`profiles.role`) agar staf dengan peran biasa (`user`) tidak dapat menghapus atau merusak data konfigurasi sistem (`app_settings`).
-3. **Bypass RLS Khusus Worker**: Worker tiket berjalan di lingkungan server tertutup, menggunakan kunci tingkat tinggi `SUPABASE_SERVICE_ROLE_KEY` untuk memungkinkan pencatatan log tiket secara otomatis bypass filter RLS demi efisiensi tinggi. Jaga kerahasiaan kunci ini di tingkat server.
-4. **Enkripsi Data Kredensial**: Data kata sandi SMTP email dan data konfigurasi sensitif yang disimpan pada tabel database telah dienkripsi secara aman untuk menghindari akses tidak sah langsung ke server email internal perusahaan.
+Lakukan pengecekan kode program dan eksekusi pengujian secara berkala dengan perintah berikut:
 
----
-
-## 🚀 Rencana Pengembangan (Future Improvements)
-
-* [ ] **Riverpod State Management**: Rencana migrasi penuh manajemen state dari `ChangeNotifier` ke `Riverpod` guna mempermudah pengujian unit (*Unit Testing*) jika tim pengembang bertambah besar.
-* [ ] **In-App Auto Update**: Integrasi modul pendeteksi pembaruan otomatis untuk mengunduh versi rilis aplikasi terbaru langsung dari server penyimpanan internal.
-* [ ] **Visualisasi Dashboard Grafik (Dashboard Chart)**: Menambahkan visualisasi tren grafik gangguan ISP mingguan/bulanan memanfaatkan pustaka grafik `fl_chart`.
-* [ ] **Mode Luring (Offline Mode Cache)**: Implementasi penyimpanan lokal terenkripsi (SQLite/Hive) agar data toko tetap dapat dibaca untuk kebutuhan darurat saat jaringan internet internal padam.
-* [ ] **Penyusunan Paket Installer Otomatis**: Memasukkan proses pengemasan *Inno Setup* ke dalam pipa otomatis CI/CD GitHub Actions.
+* **Menganalisis Kode (Linter)**:
+  ```bash
+  flutter analyze
+  ```
+* **Menjalankan Unit Test** *(jika folder test tersedia)*:
+  ```bash
+  flutter test
+  ```
 
 ---
 
-## 🤝 Kontribusi
+## 📦 Build
 
-Kontribusi dari seluruh tim IT Support & Network Operations sangat dihargai untuk menyempurnakan kegunaan sistem ini:
+### Build Aplikasi Klien (Windows Desktop)
+```bash
+flutter build windows --release
+```
+Output build rilis akan tersimpan di direktori:  
+`build/windows/x64/runner/Release/`
 
-1. Buat salinan repositori ini (*Fork*).
-2. Buat cabang fitur baru Anda (`git checkout -b fitur/fitur-keren-anda`).
-3. Lakukan penyimpanan perubahan kode Anda (`git commit -m 'Menambahkan fitur baru yang luar biasa'`).
-4. Unggah cabang baru Anda ke repositori asal (`git push origin fitur/fitur-keren-anda`).
-5. Buat permohonan penarikan kode baru (*Pull Request*) di GitHub untuk kami tinjau bersama.
-
----
-
-## 📄 Lisensi
-
-Proyek perangkat lunak ini dirilis secara **Private** dan eksklusif untuk kebutuhan operasional internal **Departemen EDP**. Dilarang mendistribusikan, mempublikasikan ulang, atau menjual kembali kode sumber ini di luar izin resmi manajemen departemen.
-
----
-
-## 👨‍💻 Author & Developer
-
-<div align="center">
-
-**Pahru Roji**  
-*Senior IT Support & Network Operations — Departemen EDP*
-
-[![GitHub](https://img.shields.io/badge/GitHub-Pahruroji12-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/Pahruroji12)
+### Build Aplikasi Klien (Android APK)
+```bash
+flutter build apk --release
+```
+Output build rilis APK akan tersimpan di direktori:  
+`build/app/outputs/flutter-apk/app-release.apk`
 
 ---
 
-**EDP NetOps Platform v2.7.0** — *Built with Professional Passion using Flutter & TypeScript*  
-© 2026 Departemen EDP. Hak Cipta Dilindungi Undang-Undang.
+## 📁 Detailed Folder Structure
 
-</div>
+Berikut adalah peta struktur direktori lengkap dari project EDP NetOps:
+
+```text
+edp_netops/
+├── android/                         # Konfigurasi native platform Android
+├── assets/                          # Folder aset statis (logo, gambar, dll.)
+│   └── logo.png                     # Logo resmi aplikasi EDP NetOps
+├── ios/                             # Konfigurasi native platform iOS
+├── web/                             # Konfigurasi native platform Web
+├── windows/                         # Konfigurasi native platform Windows Desktop
+├── lib/                             # Kode utama aplikasi klien Flutter
+│   ├── main.dart                    # Entry point inisialisasi awal aplikasi
+│   ├── app/                         # Konfigurasi routing & Material App setup
+│   │   ├── app.dart
+│   │   └── app_router.dart
+│   ├── core/                        # Modul pendukung global (Shared Core)
+│   │   ├── constants/               # Variabel konstanta global
+│   │   ├── env/                     # Loader aman file environment .env
+│   │   ├── guards/                  # Proteksi route (AuthGuard)
+│   │   ├── platform/                # Helper deteksi & guard OS spesifik (FeatureAvailability)
+│   │   ├── theme/                   # Skema tema Dark & Light mode
+│   │   ├── utils/                   # Helper enkripsi SHA-256 & generator Excel
+│   │   └── widgets/                 # Widget global (CustomSnackBar, Loading, dll.)
+│   ├── layout/                      # Template layout utama & sidebar navigasi
+│   └── features/                    # Berkas fitur berbasis arsitektur modular
+│       ├── auth/                    # Fitur login, logout, & data akun
+│       ├── dashboard/               # Fitur statistik ringkas & list filter toko
+│       ├── network_tools/           # Fitur Ping, FTP client, & kontrol Mikrotik
+│       ├── profile/                 # Pengaturan user profile & user management admin
+│       ├── settings/                # Pengaturan remote path apps & SMTP mailer
+│       ├── store/                   # Modul pencatatan & detail perangkat toko
+│       └── ticket/                  # Modul ticketing history, filter, & status sync
+│
+└── worker-ticket-sync/              # Project service background worker (Node.js/TypeScript)
+    ├── src/                         # Kode utama TypeScript
+    │   ├── main.ts                  # Inisialisasi scheduler worker
+    │   ├── config.ts                # Loader konfigurasi variabel server
+    │   ├── imapClient.ts            # Logika koneksi email IMAP
+    │   ├── server.ts                # REST API minimal untuk cek status/healthcheck
+    │   ├── supabaseClient.ts        # Client query Supabase database
+    │   ├── syncTicketEmail.ts       # Logika sinkronisasi email masuk ke DB
+    │   ├── ticketParser.ts          # Parser regex nomor tiket & kode toko
+    │   ├── types.ts                 # Deklarasi interface TypeScript
+    │   └── workerStatusService.ts   # Update detak jantung (heartbeat) worker ke DB
+    ├── package.json                 # Daftar dependensi & npm scripts
+    ├── tsconfig.json                # Konfigurasi kompilasi TypeScript
+    └── .env.example                 # Template file konfigurasi server
+```
+
+---
+
+## 🛡️ Security Notes
+
+1. **Pengamanan Kredensial (.env)**: File `.env` tidak boleh dipublikasikan ke repositori git. Selalu gunakan file `.env.example` sebagai referensi struktur variabel.
+2. **Supabase Row Level Security (RLS)**: Pastikan RLS diaktifkan di dashboard Supabase untuk semua tabel. Batasi hak akses CRUD berdasarkan user role yang tersimpan di tabel `profiles`.
+3. **Service Role Key Limitation**: Kunci `SUPABASE_SERVICE_ROLE_KEY` hanya boleh digunakan pada file `.env` di server tempat background worker dijalankan. Jangan pernah menyematkan kunci ini ke dalam aplikasi klien Flutter.
+4. **Local Credentials Encryption**: Aplikasi menyematkan enkripsi standar untuk data SMTP yang disimpan secara lokal pada perangkat pengguna guna menghindari pembacaan data penting secara ilegal.
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] **Stabilization Desktop & Mobile Release**: Pengujian komprehensif alur kerja pada sistem Android dan iOS.
+- [ ] **Mobile-Safe Feature Gating Enhancement**: Optimalisasi pesan fallback interaktif jika fitur desktop diakses dari mobile.
+- [ ] **Worker Monitoring Dashboard**: Penyediaan grafik performa sync worker langsung di halaman admin panel aplikasi klien.
+- [ ] **Database Offline Sync**: Penyimpanan cache lokal terenkripsi (SQLite/Hive) saat koneksi database cloud terputus.
+
+---
+
+## 👨‍💻 Author
+
+* **Pahruroji** - *Senior IT Support & Network Operations — Departemen EDP*
+* GitHub: [@Pahruroji12](https://github.com/Pahruroji12)
+
+---
+
+## 📄 License
+
+Project ini dikembangkan secara privat untuk kebutuhan internal **Departemen EDP**. Seluruh hak cipta dilindungi undang-undang. Pendistribusian atau publikasi ulang kode sumber ini tanpa persetujuan tertulis dari manajemen departemen dilarang keras.

@@ -192,6 +192,7 @@ class ExportHelper {
         'Nomor Tiket',
         'Status',
         'Oleh',
+        'Keterangan',
       ]);
       for (int r = 0; r < filtered.length; r++) {
         final t = filtered[r];
@@ -208,6 +209,7 @@ class ExportHelper {
           ((t['created_by'] ?? '') as String).contains('@')
               ? (t['created_by'] as String).split('@').first
               : (t['created_by'] ?? ''),
+          t['keterangan'] ?? '-',
         ];
         for (int c = 0; c < row.length; c++) {
           s1
@@ -217,7 +219,7 @@ class ExportHelper {
           );
         }
       }
-      final s1Widths = [5.0, 18.0, 12.0, 30.0, 12.0, 20.0, 14.0, 14.0];
+      final s1Widths = [5.0, 18.0, 12.0, 30.0, 12.0, 20.0, 14.0, 14.0, 25.0];
       for (int i = 0; i < s1Widths.length; i++) {
         s1.setColumnWidth(i, s1Widths[i]);
       }

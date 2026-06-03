@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/widgets/custom_snackbar.dart';
 import '../../../domain/ticket_model.dart';
 import '../../../presentation/ticket_controller.dart';
 
@@ -147,12 +149,37 @@ class RankingExpandedDetail extends StatelessWidget {
                             ),
                             if ((t.nomorTiket ?? '').trim().isNotEmpty) ...[
                               const SizedBox(width: 8),
-                              Text(
-                                (t.nomorTiket ?? '').trim(),
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  color: context.textSecondary,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    (t.nomorTiket ?? '').trim(),
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: context.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onTap: () {
+                                        Clipboard.setData(ClipboardData(text: (t.nomorTiket ?? '').trim())).then((_) {
+                                          CustomSnackBar.info('Nomor tiket berhasil disalin!');
+                                        });
+                                      },
+                                      borderRadius: BorderRadius.circular(3),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(2),
+                                        child: Icon(
+                                          Icons.copy_rounded,
+                                          size: 9,
+                                          color: context.textSecondary.withOpacity(0.6),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ],

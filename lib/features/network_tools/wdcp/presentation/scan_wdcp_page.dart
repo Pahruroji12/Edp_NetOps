@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/page_entry_transition.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../layout/main_layout.dart';
@@ -70,80 +71,63 @@ class _ScanWdcpPageState extends State<ScanWdcpPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: context.surfaceColor,
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                context.pagePaddingH,
-                context.scaledPadding(20),
-                context.pagePaddingH,
-                40,
+      body: _ctrl.isLoading
+          ? Center(
+              child: CircularProgressIndicator(
+                color: context.accentColor,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Scan Panel — Fade-In Slide-Up pertama (80ms) ──
-                  const SectionHeader(
-                    title: 'SCAN RBWDCP',
-                    icon: Icons.radar_rounded,
-                  ),
-                  const SizedBox(height: 12),
-                  AnimatedOpacity(
-                    opacity: _ctrl.showScanPanel ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeOut,
-                    child: AnimatedSlide(
-                      offset: _ctrl.showScanPanel
-                          ? Offset.zero
-                          : const Offset(0, -0.03),
-                      duration: const Duration(milliseconds: 500),
-                      curve: Curves.easeOutCubic,
-                      child: WdcpScannerPanel(
-                        scan: _ctrl.scan,
-                        onFixNoTargets: () => CustomSnackBar.show(
-                          context,
-                          'Tidak ada router dengan default-auth aktif.',
-                          context.successColor,
-                        ),
-                        onCsvTap: () => CustomSnackBar.show(
-                          context,
-                          'Disimpan di: ${_ctrl.scan.scanFilePath}',
-                          context.successColor,
-                        ),
+            )
+          : PageEntryTransition(
+              child: CustomScrollView(
+                slivers: [
+                  _buildSliverAppBar(),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        context.pagePaddingH,
+                        context.scaledPadding(20),
+                        context.pagePaddingH,
+                        40,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SectionHeader(
+                            title: 'SCAN RBWDCP',
+                            icon: Icons.radar_rounded,
+                          ),
+                          const SizedBox(height: 12),
+                          WdcpScannerPanel(
+                            scan: _ctrl.scan,
+                            onFixNoTargets: () => CustomSnackBar.show(
+                              context,
+                              'Tidak ada router dengan default-auth aktif.',
+                              context.successColor,
+                            ),
+                            onCsvTap: () => CustomSnackBar.show(
+                              context,
+                              'Disimpan di: ${_ctrl.scan.scanFilePath}',
+                              context.successColor,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
 
-                  // ── Daftar Toko — Fade-In Slide-Up kedua (280ms) ──
-                  const SectionHeader(
-                    title: 'DAFTAR TOKO',
-                    icon: Icons.store_outlined,
-                  ),
-                  const SizedBox(height: 12),
-                  AnimatedOpacity(
-                    opacity: _ctrl.showListCard ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeOut,
-                    child: AnimatedSlide(
-                      offset: _ctrl.showListCard
-                          ? Offset.zero
-                          : const Offset(0, 0.04),
-                      duration: const Duration(milliseconds: 500),
-                      curve: Curves.easeOutCubic,
-                      child: _buildStoreListCard(),
+                          const SectionHeader(
+                            title: 'DAFTAR TOKO',
+                            icon: Icons.store_outlined,
+                          ),
+                          const SizedBox(height: 12),
+                          _buildStoreListCard(),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
-      ),
     );
   }
+
 
   // ══════════════════════════════════════════════════════════
   // SLIVER APP BAR

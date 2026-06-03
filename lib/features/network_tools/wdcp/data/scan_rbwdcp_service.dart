@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'package:edp_netops/core/platform/native_io.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:csv/csv.dart';

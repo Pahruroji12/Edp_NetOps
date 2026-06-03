@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'package:edp_netops/core/platform/native_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 

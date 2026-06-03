@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'package:edp_netops/core/platform/native_io.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/error/failures.dart';
@@ -135,6 +135,7 @@ class TicketImapService {
               id: ticket.id,
               nomorTiket: ticketNumber,
               status: 'In Progress', // Otomatis berubah menjadi In Progress ketika nomor tiket terisi
+              keterangan: ticket.keterangan ?? '',
             );
 
             if (updateRes.isSuccess) {

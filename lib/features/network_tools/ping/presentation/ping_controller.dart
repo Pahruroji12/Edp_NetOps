@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'package:edp_netops/core/platform/native_io.dart';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -82,12 +82,11 @@ class PingController extends ChangeNotifier with NotificationMixin {
 
     final prefs = await SharedPreferences.getInstance();
     // Default: true (aktif)
-    final savedState = prefs.getBool('auto_ping_stb_active') ?? true;
-    if (savedState) {
-      _enableAutoPing();
-    } else {
-      _disableAutoPing();
-    }
+    isAutoPingSTBActive = prefs.getBool('auto_ping_stb_active') ?? true;
+    
+    // Jalankan timer penjadwalan di latar belakang (selalu aktif untuk memantau pukul 23:00)
+    _startSchedulerTimer();
+    
     notifyListeners();
   }
 
@@ -111,35 +110,52 @@ class PingController extends ChangeNotifier with NotificationMixin {
   }
 
   // ── TOGGLE AUTO PING ─────────────────────────────────────────
-  Future<void> toggleAutoPing(bool isActive) async {
+  Future<void> toggleAutoPing(bool isActive, {bool isAutoReset = false}) async {
+    isAutoPingSTBActive = isActive;
     final prefs = await SharedPreferences.getInstance();
-    if (isActive) {
-      _enableAutoPing();
-    } else {
-      _disableAutoPing();
-    }
     await prefs.setBool('auto_ping_stb_active', isActive);
+
+    try {
+      await ActivityLogger.logAction(
+        actionType: isActive ? 'ENABLE_AUTO_PING' : 'DISABLE_AUTO_PING',
+        description: isAutoReset
+            ? 'Sistem otomatis mengaktifkan kembali jadwal auto-ping (pukul 23:00 reset)'
+            : (isActive
+                ? 'Pengguna mengaktifkan jadwal auto-ping otomatis secara manual'
+                : 'Pengguna MENONAKTIFKAN jadwal auto-ping otomatis'),
+      );
+    } catch (e) {
+      debugPrint('[PingController] Gagal mencatat log aktivitas: $e');
+    }
+
     notifyListeners();
   }
 
-  void _enableAutoPing() {
-    isAutoPingSTBActive = true;
+  /// Memulai background timer penjadwalan.
+  /// Timer selalu berjalan untuk mendeteksi kapan jam menunjukkan pukul 23:00
+  /// sehingga status auto-ping bisa di-reset kembali ke ON secara otomatis.
+  void _startSchedulerTimer() {
     _schedulerTimer?.cancel();
     _schedulerTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
       final now = DateTime.now();
-      // Rentang jam 00:00 - 03:59, cek menit 0
-      if (now.hour >= 0 && now.hour <= 3 && now.minute == 0) {
-        if (!_isAutoPingRunning && !isScanning) {
-          _runAutoPingRoutine();
+
+      // ─── 1. RESET OTOMATIS KE ON PADA PUKUL 23:00 ───
+      if (now.hour == 23 && now.minute == 0) {
+        if (!isAutoPingSTBActive) {
+          debugPrint('[Auto Ping] Pukul 23:00 terdeteksi. Mereset penjadwalan otomatis menjadi AKTIF.');
+          toggleAutoPing(true, isAutoReset: true);
+        }
+      }
+
+      // ─── 2. EKSEKUSI AUTO PING JIKA AKTIF (Jam 00:00 - 03:59, Menit 0) ───
+      if (isAutoPingSTBActive) {
+        if (now.hour >= 0 && now.hour <= 3 && now.minute == 0) {
+          if (!_isAutoPingRunning && !isScanning) {
+            _runAutoPingRoutine();
+          }
         }
       }
     });
-  }
-
-  void _disableAutoPing() {
-    isAutoPingSTBActive = false;
-    _schedulerTimer?.cancel();
-    _schedulerTimer = null;
   }
 
   // ── RUTIN AUTO PING ──────────────────────────────────────────
@@ -196,21 +212,31 @@ class PingController extends ChangeNotifier with NotificationMixin {
       final List<PingResult> allResults = [];
       int completed = 0;
 
-      // 2. Ping satu per satu via executor
-      for (int i = 0; i < totalTarget; i++) {
-        final result = await _executor.pingSingleIP(targets[i]);
-        allResults.add(result);
+      // 2. Ping secara konkuren dalam batch (10 target sekaligus) untuk mencegah kongesti jaringan
+      const batchSize = 10;
+      for (int i = 0; i < totalTarget; i += batchSize) {
+        final end = (i + batchSize < totalTarget) ? i + batchSize : totalTarget;
+        final batchTargets = targets.sublist(i, end);
 
-        if (result.isAlive) {
-          okCount++;
-        } else {
-          nokCount++;
-        }
-
-        completed++;
-        progressValue = completed / totalTarget;
-        statusText = 'Mengeksekusi Ping... ($completed / $totalTarget IP)';
-        notifyListeners();
+        // Eksekusi batch secara paralel
+        final batchResults = await Future.wait(
+          batchTargets.map((target) async {
+            final result = await _executor.pingSingleIP(target);
+            
+            if (result.isAlive) {
+              okCount++;
+            } else {
+              nokCount++;
+            }
+            completed++;
+            progressValue = completed / totalTarget;
+            statusText = 'Mengeksekusi Ping... ($completed / $totalTarget IP)';
+            notifyListeners();
+            
+            return result;
+          }),
+        );
+        allResults.addAll(batchResults);
       }
 
       // 3. Simpan ke CSV via executor

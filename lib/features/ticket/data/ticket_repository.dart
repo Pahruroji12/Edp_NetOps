@@ -50,16 +50,21 @@ class TicketRepository {
     }
   }
 
-  /// Update nomor tiket dan status.
+  /// Update nomor tiket, status, dan keterangan.
   Future<Result<void>> update({
     required String id,
     required String nomorTiket,
     required String status,
+    required String keterangan,
   }) async {
     try {
       await _client
           .from('ticket_logs')
-          .update({'nomor_tiket': nomorTiket, 'status': status})
+          .update({
+            'nomor_tiket': nomorTiket,
+            'status': status,
+            'keterangan': keterangan,
+          })
           .eq('id', id);
       return const SuccessResult(null);
     } on PostgrestException catch (e) {

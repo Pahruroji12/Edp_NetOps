@@ -3,6 +3,7 @@ import '../../../../core/platform/native_io.dart';
 // import 'package:flutter/material.dart';
 
 import '../../../settings/data/settings_repository.dart';
+import '../../../../core/utils/tool_helper.dart';
 
 /// ProcessLauncher — service untuk meluncurkan proses external.
 ///
@@ -37,21 +38,16 @@ class LaunchResult {
 class ProcessLauncher {
   final SettingsRepository _repo = SettingsRepository();
 
-  // ── Path Configuration ─────────────────────────────────────────
-  // Semua path terpusat di sini — tidak lagi hardcoded di page.
-  // TODO: Fase berikutnya — pindahkan ke Supabase app_settings.
-  static const String _basePath = r'D:\Edp NetOps';
-  static const String _winboxPath = r'D:\Edp NetOps\winbox.exe';
-  static const String _vncPath = r'D:\Edp NetOps\vncviewer.exe';
   static const String _defaultCctvPort = '45200';
 
   // ── WINBOX (Mikrotik Gateway) ──────────────────────────────────
 
   /// Luncurkan Winbox ke IP gateway toko.
   Future<LaunchResult> launchWinbox(String ip) async {
-    if (!await File(_winboxPath).exists()) {
+    final winboxPath = await ToolHelper.getWinboxPath();
+    if (!await File(winboxPath).exists()) {
       return LaunchResult.fail(
-        'Winbox tidak ditemukan di $_basePath\\winbox.exe',
+        'Winbox tidak ditemukan di: $winboxPath',
       );
     }
     final result = await _repo.fetchAppSettings();
@@ -64,7 +60,7 @@ class ProcessLauncher {
           final pass = data['koneksi_pass'] ?? '';
           final address = '${ip.trim()}:$port';
 
-          Process.start(_winboxPath, [
+          Process.start(winboxPath, [
             address,
             user,
             pass,
@@ -81,9 +77,10 @@ class ProcessLauncher {
 
   /// Luncurkan Winbox ke IP RB WDCP dengan credentials WDCP.
   Future<LaunchResult> launchWinboxWdcp(String ip) async {
-    if (!await File(_winboxPath).exists()) {
+    final winboxPath = await ToolHelper.getWinboxPath();
+    if (!await File(winboxPath).exists()) {
       return LaunchResult.fail(
-        'Winbox tidak ditemukan di $_basePath\\winbox.exe',
+        'Winbox tidak ditemukan di: $winboxPath',
       );
     }
     final result = await _repo.fetchAppSettings();
@@ -96,7 +93,7 @@ class ProcessLauncher {
           final port = data['winbox_port'] ?? '8291';
           final address = '$ip:$port';
 
-          Process.start(_winboxPath, [
+          Process.start(winboxPath, [
             address,
             user,
             pass,
@@ -113,9 +110,10 @@ class ProcessLauncher {
 
   /// Luncurkan VNC Viewer ke IP station/kasir.
   Future<LaunchResult> launchVnc(String ip) async {
-    if (!File(_vncPath).existsSync()) {
+    final vncPath = await ToolHelper.getVncPath();
+    if (!await File(vncPath).exists()) {
       return LaunchResult.fail(
-        'VNC Viewer tidak ditemukan di $_basePath\\vncviewer.exe',
+        'VNC Viewer tidak ditemukan di: $vncPath',
       );
     }
     final result = await _repo.fetchAppSettings();
@@ -125,7 +123,7 @@ class ProcessLauncher {
         try {
           final password = data['vnc_pass'] ?? 'konvers1';
 
-          Process.start(_vncPath, [
+          Process.start(vncPath, [
             ip,
             '/password',
             password,

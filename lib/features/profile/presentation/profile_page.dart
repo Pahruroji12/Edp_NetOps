@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../core/widgets/section_header.dart';
 import 'profile_controller.dart';
+import '../../../core/widgets/page_entry_transition.dart';
 import 'widgets/profile_hero_card.dart';
 import 'widgets/security_card.dart';
 import 'widgets/user_list_card.dart';
@@ -89,76 +90,67 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: context.primaryColor,
       body: _ctrl.isLoading
           ? _buildLoadingOverlay()
-          : AnimatedOpacity(
-              opacity: _ctrl.animationsReady ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 700),
-              curve: Curves.easeOut,
-              child: AnimatedSlide(
-                offset: _ctrl.animationsReady
-                    ? Offset.zero
-                    : const Offset(0, 0.04),
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.easeOut,
-                child: CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  slivers: [
-                    _buildSliverAppBar(),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          context.pagePaddingH,
-                          0,
-                          context.pagePaddingH,
-                          40,
-                        ),
-                        child: Column(
-                          children: [
-                            ProfileHeroCard(
-                              onClearCache: _ctrl.clearAppCache,
-                            ),
-                            const SizedBox(height: 24),
+          : PageEntryTransition(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  _buildSliverAppBar(),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        context.pagePaddingH,
+                        0,
+                        context.pagePaddingH,
+                        40,
+                      ),
+                      child: Column(
+                        children: [
+                          ProfileHeroCard(
+                            onClearCache: _ctrl.clearAppCache,
+                          ),
+                          const SizedBox(height: 24),
 
-                            const SectionHeader(
-                              title: "KEAMANAN AKUN",
-                              icon: Icons.shield_outlined,
-                            ),
-                            const SizedBox(height: 12),
-                            SecurityCard(
-                              obscureOld: _ctrl.obscureOldPass,
-                              obscureNew: _ctrl.obscureNewPass,
-                              onToggleOldVisibility:
-                                  _ctrl.toggleOldPassVisibility,
-                              onToggleNewVisibility:
-                                  _ctrl.toggleNewPassVisibility,
-                              onSubmit: _ctrl.updatePassword,
-                            ),
-                            const SizedBox(height: 24),
+                          const SectionHeader(
+                            title: "KEAMANAN AKUN",
+                            icon: Icons.shield_outlined,
+                          ),
+                          const SizedBox(height: 12),
+                          SecurityCard(
+                            obscureOld: _ctrl.obscureOldPass,
+                            obscureNew: _ctrl.obscureNewPass,
+                            onToggleOldVisibility:
+                                _ctrl.toggleOldPassVisibility,
+                            onToggleNewVisibility:
+                                _ctrl.toggleNewPassVisibility,
+                            onSubmit: _ctrl.updatePassword,
+                          ),
+                          const SizedBox(height: 24),
 
-                            const SectionHeader(
-                              title: "DAFTAR TIM EDP",
-                              icon: Icons.group_outlined,
-                            ),
-                            const SizedBox(height: 12),
-                            UserListCard(
-                              users: _ctrl.filteredUsers,
-                              isLoading: _ctrl.isLoadingUsers,
-                              searchController: _searchUserCtrl,
-                              scrollController: _userListScrollCtrl,
-                              onSearch: _ctrl.filterUsers,
-                              onDeleteUser: _ctrl.executeDeleteUser,
-                            ),
+                          const SectionHeader(
+                            title: "DAFTAR TIM EDP",
+                            icon: Icons.group_outlined,
+                          ),
+                          const SizedBox(height: 12),
+                          UserListCard(
+                            users: _ctrl.filteredUsers,
+                            isLoading: _ctrl.isLoadingUsers,
+                            searchController: _searchUserCtrl,
+                            scrollController: _userListScrollCtrl,
+                            onSearch: _ctrl.filterUsers,
+                            onDeleteUser: _ctrl.executeDeleteUser,
+                          ),
 
-                            const SizedBox(height: 32),
-                          ],
-                        ),
+                          const SizedBox(height: 32),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
     );
   }
+
 
   // ── WIDGET KECIL — tetap di Page karena sangat sederhana ──────
 

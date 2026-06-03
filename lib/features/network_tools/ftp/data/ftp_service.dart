@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:edp_netops/core/platform/native_io.dart';
 import 'package:flutter/foundation.dart';
 import 'ftp_client.dart';
 import 'package:edp_netops/core/utils/notification_mixin.dart';

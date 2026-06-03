@@ -11,6 +11,7 @@ class TicketModel {
   final String status;
   final DateTime? createdAt;
   final String? createdBy;
+  final String? keterangan;
 
   const TicketModel({
     required this.id,
@@ -21,6 +22,7 @@ class TicketModel {
     required this.status,
     this.createdAt,
     this.createdBy,
+    this.keterangan,
   });
 
   factory TicketModel.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,7 @@ class TicketModel {
           ? DateTime.tryParse(json['created_at'])?.toLocal()
           : null,
       createdBy: json['created_by'],
+      keterangan: json['keterangan'],
     );
   }
 
@@ -48,5 +51,6 @@ class TicketModel {
     'status': status,
     'created_at': createdAt?.toUtc().toIso8601String(),
     'created_by': createdBy,
+    'keterangan': keterangan,
   };
 }

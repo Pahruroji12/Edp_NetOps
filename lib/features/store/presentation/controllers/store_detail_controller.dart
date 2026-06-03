@@ -8,6 +8,7 @@ import '../../../../../core/utils/role_helper.dart';
 import '../../../settings/data/settings_repository.dart';
 import '../../../../../core/utils/notification_mixin.dart';
 import '../../../../../core/platform/platform_helper.dart';
+import '../../../../../core/utils/tool_helper.dart';
 import '../../../../../core/platform/feature_availability.dart';
 
 /// StoreDetailController — state dan logic untuk StoreDetailPage.
@@ -106,10 +107,10 @@ class StoreDetailController extends ChangeNotifier with NotificationMixin {
   Future<void> launchWinbox(String ip) async {
     if (!FeatureAvailability.canLaunchProcess) return;
 
-    const winboxPath = r'D:\Edp NetOps\winbox.exe';
+    final winboxPath = await ToolHelper.getWinboxPath();
     if (!await File(winboxPath).exists()) {
       pendingErrorTitle = "Winbox Tidak Ditemukan";
-      pendingErrorContent = "Cek folder D:\\Edp NetOps\\winbox.exe";
+      pendingErrorContent = "Cek folder instalasi atau legacy: $winboxPath";
       notifyListeners();
       return;
     }
@@ -134,10 +135,10 @@ class StoreDetailController extends ChangeNotifier with NotificationMixin {
   Future<void> launchWinboxWdcp(String ip) async {
     if (!FeatureAvailability.canLaunchProcess) return;
 
-    const winboxPath = r'D:\Edp NetOps\winbox.exe';
+    final winboxPath = await ToolHelper.getWinboxPath();
     if (!await File(winboxPath).exists()) {
       pendingErrorTitle = "Winbox Tidak Ditemukan";
-      pendingErrorContent = "Cek folder D:\\Edp NetOps\\winbox.exe";
+      pendingErrorContent = "Cek folder instalasi atau legacy: $winboxPath";
       notifyListeners();
       return;
     }

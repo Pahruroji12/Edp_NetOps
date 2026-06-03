@@ -1,7 +1,8 @@
-import 'dart:io';
+import 'package:edp_netops/core/platform/native_io.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'mikrotik_api_service.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/utils/tool_helper.dart';
 import '../../../../core/error/failures.dart';
 
 /// WdcpRepository — operasi data untuk fitur WDCP Control.
@@ -140,9 +141,9 @@ class WdcpRepository {
     required String user,
     required String pass,
   }) async {
-    const winboxPath = r'D:\Edp NetOps\winbox.exe';
+    final winboxPath = await ToolHelper.getWinboxPath();
     if (!await File(winboxPath).exists()) {
-      return const ErrorResult(UnknownFailure('File winbox.exe tidak ditemukan!'));
+      return ErrorResult(UnknownFailure('File winbox.exe tidak ditemukan di: $winboxPath'));
     }
     try {
       final address = '$ip:$winboxPort';
