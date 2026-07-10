@@ -67,10 +67,6 @@ class StoreDeviceCard extends StatelessWidget {
               : null),
           if (!ctrl.isMobile) _buildStbProgress(context),
         ]),
-        if (store.ipIkiosk?.isNotEmpty == true && store.ipIkiosk != '-') ...[
-          _divider(context),
-          _ipRow(context, "IP iKiosk", store.ipIkiosk, icon: Icons.touch_app_outlined),
-        ],
         if (store.ipTimbangan?.isNotEmpty == true && store.ipTimbangan != '-') ...[
           _divider(context),
           _ipRow(context, "Timbangan", store.ipTimbangan, icon: Icons.scale_outlined),
@@ -83,10 +79,13 @@ class StoreDeviceCard extends StatelessWidget {
   }
 
   Widget _buildStationsSection(BuildContext context) {
-    final stations = <(String, String?)>[
-      ('Station 1', store.ipStation1), ('Station 2', store.ipStation2),
-      ('Station 3', store.ipStation3), ('Station 4', store.ipStation4),
-      ('Station 5', store.ipStation5),
+    final stations = <(String, String?, IconData)>[
+      ('Station 1', store.ipStation1, Icons.computer_outlined),
+      ('Station 2', store.ipStation2, Icons.computer_outlined),
+      ('Station 3', store.ipStation3, Icons.computer_outlined),
+      ('Station 4', store.ipStation4, Icons.computer_outlined),
+      ('Station 5', store.ipStation5, Icons.computer_outlined),
+      ('IP iKiosk', store.ipIkiosk, Icons.touch_app_outlined),
     ].where((s) => s.$2 != null && s.$2!.isNotEmpty && s.$2 != '-').toList();
     if (stations.isEmpty) return const SizedBox.shrink();
     return Column(children: [
@@ -94,7 +93,7 @@ class StoreDeviceCard extends StatelessWidget {
       _subHeader(context, "STATION / KASIR", Icons.point_of_sale_outlined, const Color(0xFF00C9A7)),
       for (int i = 0; i < stations.length; i++) ...[
         if (i > 0) _divider(context),
-        _ipRow(context, stations[i].$1, stations[i].$2, showVnc: true, icon: Icons.computer_outlined),
+        _ipRow(context, stations[i].$1, stations[i].$2, showVnc: true, icon: stations[i].$3),
       ],
     ]);
   }
@@ -191,7 +190,22 @@ class StoreDeviceCard extends StatelessWidget {
             Text(label, style: TextStyle(color: context.textSecondary, fontSize: 11)),
           ]),
           const SizedBox(height: 6),
-          Row(children: [const SizedBox(width: 25), Expanded(child: ipValue), Wrap(spacing: 5, children: actionButtons)]),
+          Row(children: [
+            const SizedBox(width: 25),
+            Expanded(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ipValue,
+                  if (hasValue) ...[
+                    const SizedBox(width: 8),
+                    _buildStatusIndicator(context, value),
+                  ],
+                ],
+              ),
+            ),
+            Wrap(spacing: 5, children: actionButtons),
+          ]),
         ]));
       }
       return Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), child: Row(children: [
@@ -199,10 +213,105 @@ class StoreDeviceCard extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label, style: TextStyle(color: context.textSecondary, fontSize: 11)),
-          const SizedBox(height: 2), ipValue,
+          const SizedBox(height: 2),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ipValue,
+              if (hasValue) ...[
+                const SizedBox(width: 8),
+                _buildStatusIndicator(context, value),
+              ],
+            ],
+          ),
         ])),
         if (actionButtons.isNotEmpty) ...[const SizedBox(width: 8), Wrap(spacing: 5, children: actionButtons)],
       ]));
     });
+  }
+
+  Widget _buildStatusIndicator(BuildContext context, String ip) {
+    if (ctrl.activeChecks.contains(ip)) {
+      return SizedBox(
+        width: 10,
+        height: 10,
+        child: CircularProgressIndicator(
+          strokeWidth: 1.5,
+          color: context.accentColor,
+        ),
+      );
+    }
+
+    final result = ctrl.ipPingResults[ip];
+    if (result == null) {
+      return const SizedBox.shrink();
+    }
+
+    if (result.success) {
+      final latencyStr = result.latencyMs != null ? " ${result.latencyMs}ms" : "";
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: context.successColor.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: context.successColor.withOpacity(0.3), width: 0.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                color: context.successColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              "ON$latencyStr",
+              style: TextStyle(
+                color: context.successColor,
+                fontSize: 8,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: context.dangerColor.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: context.dangerColor.withOpacity(0.3), width: 0.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                color: context.dangerColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              "OFF",
+              style: TextStyle(
+                color: context.dangerColor,
+                fontSize: 8,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
   }
 }

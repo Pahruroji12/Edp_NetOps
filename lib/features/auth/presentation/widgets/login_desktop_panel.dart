@@ -368,7 +368,7 @@ class _LoginDesktopPanelState extends State<LoginDesktopPanel> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'EDP NetOps v2.8.0  ·  Developed by Pahruroji',
+                  'EDP NetOps v2.9.0  ·  Developed by Pahruroji',
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

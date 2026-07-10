@@ -6,13 +6,13 @@ import 'package:flutter/material.dart';
 class PageEntryTransition extends StatefulWidget {
   final Widget child;
   final Duration duration;
-  final double slideOffset;
+  final double startScale;
 
   const PageEntryTransition({
     super.key,
     required this.child,
-    this.duration = const Duration(milliseconds: 700),
-    this.slideOffset = 0.04,
+    this.duration = const Duration(milliseconds: 250),
+    this.startScale = 0.98,
   });
 
   @override
@@ -27,7 +27,7 @@ class _PageEntryTransitionState extends State<PageEntryTransition> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      Future.delayed(const Duration(milliseconds: 50), () {
+      Future.delayed(const Duration(milliseconds: 30), () {
         if (mounted) {
           setState(() {
             _animate = true;
@@ -42,13 +42,14 @@ class _PageEntryTransitionState extends State<PageEntryTransition> {
     return AnimatedOpacity(
       opacity: _animate ? 1.0 : 0.0,
       duration: widget.duration,
-      curve: Curves.easeOut,
-      child: AnimatedSlide(
-        offset: _animate ? Offset.zero : Offset(0, widget.slideOffset),
+      curve: Curves.easeOutCubic,
+      child: AnimatedScale(
+        scale: _animate ? 1.0 : widget.startScale,
         duration: widget.duration,
-        curve: Curves.easeOut,
+        curve: Curves.easeOutCubic,
         child: widget.child,
       ),
     );
   }
 }
+

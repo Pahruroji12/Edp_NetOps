@@ -133,21 +133,39 @@ class _WdcpControlPageState extends State<WdcpControlPage>
         ]),
       ]),
       actions: [
-        Material(color: Colors.transparent, child: InkWell(
-          onTap: _ctrl.isConnected ? _ctrl.connectAndLoad : null,
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: context.accentColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: context.accentColor.withOpacity(0.25))),
-            child: Row(children: [
-              Icon(Icons.refresh_rounded, color: context.accentColor, size: 14),
-              const SizedBox(width: 5),
-              Text("Reconnect", style: TextStyle(color: context.accentColor, fontSize: 11, fontWeight: FontWeight.w700)),
-            ]),
+        Center(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _ctrl.isConnected ? _ctrl.connectAndLoad : null,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: context.accentColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: context.accentColor.withOpacity(0.2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.refresh_rounded, color: context.accentColor, size: 13),
+                    const SizedBox(width: 5),
+                    Text(
+                      "Reconnect",
+                      style: TextStyle(
+                        color: context.accentColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        )),
-        const SizedBox(width: 10),
+        ),
+        const SizedBox(width: 16),
       ],
       bottom: PreferredSize(preferredSize: const Size.fromHeight(1), child: Container(height: 1, decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.transparent, context.accentColor.withOpacity(0.3), Colors.transparent])))),
     );

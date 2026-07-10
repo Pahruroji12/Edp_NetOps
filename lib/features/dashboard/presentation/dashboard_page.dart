@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:edp_netops/core/widgets/app_hamburger_button.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../core/widgets/custom_snackbar.dart';
-import '../../../layout/main_layout.dart';
 import '../../auth/domain/auth_state.dart';
 import 'dashboard_controller.dart';
 import '../../ticket/presentation/controllers/worker_controller.dart';
@@ -175,7 +174,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 ],
               ),
             ),
-
     );
   }
 
@@ -187,15 +185,9 @@ class _DashboardPageState extends State<DashboardPage> {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 7,
-            child: TicketChartSection(ctrl: _ctrl),
-          ),
+          Expanded(flex: 7, child: TicketChartSection(ctrl: _ctrl)),
           const SizedBox(width: 16),
-          Expanded(
-            flex: 3,
-            child: RankingSection(ctrl: _ctrl),
-          ),
+          Expanded(flex: 3, child: RankingSection(ctrl: _ctrl)),
         ],
       );
     }
@@ -285,11 +277,7 @@ class _DashboardPageState extends State<DashboardPage> {
       automaticallyImplyLeading: false,
       leading: isDesktop
           ? null
-          : IconButton(
-              icon: Icon(Icons.menu_rounded, color: context.textPrimary),
-              onPressed: () =>
-                  MainLayout.scaffoldKey.currentState?.openDrawer(),
-            ),
+          : const Center(child: AppHamburgerButton()),
       iconTheme: IconThemeData(color: context.textPrimary),
       title: Builder(
         builder: (ctx) {
@@ -366,73 +354,61 @@ class _DashboardPageState extends State<DashboardPage> {
         },
       ),
       actions: [
-        ValueListenableBuilder<ThemeMode>(
-          valueListenable: themeNotifier,
-          builder: (context, mode, _) {
-            final isDark = mode == ThemeMode.dark;
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => themeNotifier.value = isDark
-                    ? ThemeMode.light
-                    : ThemeMode.dark,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(
-                    vertical: 10, horizontal: 4),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: context.accentColor.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: context.accentColor.withOpacity(0.2)),
-                  ),
-                  child: Icon(
-                    isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                    color: context.accentColor, size: 16),
+        Center(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _ctrl.fetchData,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
                 ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(width: 4),
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: _ctrl.fetchData,
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: context.accentColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: context.accentColor.withOpacity(0.25)),
-              ),
-              child: Row(children: [
-                Icon(Icons.refresh_outlined, color: context.accentColor, size: 14),
-                const SizedBox(width: 5),
-                Text('Refresh', style: TextStyle(
-                  color: context.accentColor, fontSize: 12,
-                  fontWeight: FontWeight.w700)),
-              ]),
+                decoration: BoxDecoration(
+                  color: context.accentColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: context.accentColor.withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.refresh_rounded,
+                      color: context.accentColor,
+                      size: 13,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      'Refresh',
+                      style: TextStyle(
+                        color: context.accentColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
             ),
           ),
         ),
-        const SizedBox(width: 12),
-      ],
+      ),
+      const SizedBox(width: 16),
+    ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Container(
           height: 1,
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [
-              Colors.transparent,
-              context.accentColor.withOpacity(0.3),
-              Colors.transparent,
-            ]),
+            gradient: LinearGradient(
+              colors: [
+                Colors.transparent,
+                context.accentColor.withOpacity(0.3),
+                Colors.transparent,
+              ],
+            ),
           ),
         ),
       ),
@@ -444,16 +420,26 @@ class _DashboardPageState extends State<DashboardPage> {
       children: [
         Icon(icon, size: 14, color: context.accentColor),
         const SizedBox(width: 8),
-        Text(title, style: TextStyle(
-          color: context.textSecondary, fontSize: 11,
-          fontWeight: FontWeight.w700, letterSpacing: 2)),
+        Text(
+          title,
+          style: TextStyle(
+            color: context.textSecondary,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 2,
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: Container(
-          height: 1,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [context.borderColor, Colors.transparent])),
-        )),
+        Expanded(
+          child: Container(
+            height: 1,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [context.borderColor, Colors.transparent],
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }

@@ -10,7 +10,7 @@ class AppConstants {
 
   // ── Aplikasi ───────────────────────────────────────────────────
   static const String appName = 'EDP NetOps';
-  static const String appVersion = '2.8.0';
+  static const String appVersion = '2.9.0';
   static const String companyName = 'PT. Indomarco Prismatama';
   static const String branchName = 'Cabang LEBAK';
 
@@ -19,6 +19,7 @@ class AppConstants {
   static const String winboxPath = r'D:\Edp NetOps\winbox.exe';
   static const String vncViewerPath = r'D:\Edp NetOps\vncviewer.exe';
   static const String pingOutputDir = r'D:\Edp NetOps\Hasil Ping';
+  static const String stb24JamRekapDir = r'D:\Rekap Ping STB 24 Jam';
 
   // ── Port Default ───────────────────────────────────────────────
   static const String defaultWinboxPort = '8291';

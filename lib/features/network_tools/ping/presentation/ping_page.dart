@@ -1,7 +1,7 @@
 import '../../../../core/platform/feature_availability.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/widgets/page_entry_transition.dart';
-import '../../../../layout/main_layout.dart';
+import 'package:edp_netops/core/widgets/app_hamburger_button.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive_helper.dart';
 import '../../../../core/widgets/section_header.dart';
@@ -9,7 +9,6 @@ import '../../../../core/widgets/custom_snackbar.dart';
 import '../../../../core/globals.dart';
 import 'ping_controller.dart';
 import 'widgets/ping_scheduler_card.dart';
-import 'widgets/ping_progress_card.dart';
 import 'widgets/ping_target_selector.dart';
 import 'widgets/ping_manual_input_card.dart';
 import 'widgets/ping_result_log.dart';
@@ -84,12 +83,9 @@ class _PingPageState extends State<PingPage>
           automaticallyImplyLeading: false,
           leading: context.isDesktop
               ? null
-              : IconButton(
-                  icon: Icon(Icons.menu_rounded, color: context.textPrimary),
-                  onPressed: () =>
-                      MainLayout.scaffoldKey.currentState?.openDrawer(),
-                ),
+              : const Center(child: AppHamburgerButton()),
           iconTheme: IconThemeData(color: context.textPrimary),
+
         ),
         body: Center(
           child: Column(
@@ -144,10 +140,10 @@ class _PingPageState extends State<PingPage>
                         PingSchedulerCard(engine: engine),
                         const SizedBox(height: 24),
 
-                        // ── Status Progress ──────────────────────
+                        // ── Logs Console & Progress ──────────────
                         if (engine.isScanning || engine.progressValue == 1.0) ...[
-                          PingProgressCard(engine: engine),
-                          const SizedBox(height: 20),
+                          PingResultLog(engine: engine),
+                          const SizedBox(height: 24),
                         ],
 
                         // ── Target IP ──────────────────────────
@@ -167,12 +163,6 @@ class _PingPageState extends State<PingPage>
                         const SizedBox(height: 12),
                         PingManualInputCard(engine: engine),
                         const SizedBox(height: 24),
-
-                        // ── Logs Console ─────────────────────────
-                        if (engine.isScanning || engine.progressValue == 1.0) ...[
-                          PingResultLog(engine: engine),
-                          const SizedBox(height: 24),
-                        ],
 
                         // ── Tombol Start ─────────────────────────
                         PingActionButton(engine: engine),
@@ -199,12 +189,9 @@ class _PingPageState extends State<PingPage>
       automaticallyImplyLeading: false,
       leading: context.isDesktop
           ? null
-          : IconButton(
-              icon: Icon(Icons.menu_rounded, color: context.textPrimary),
-              onPressed: () =>
-                  MainLayout.scaffoldKey.currentState?.openDrawer(),
-            ),
+          : const Center(child: AppHamburgerButton()),
       iconTheme: IconThemeData(color: context.textPrimary),
+
       title: Row(
         children: [
           Container(

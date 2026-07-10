@@ -14,13 +14,13 @@ import '../data/scan_rbwdcp_service.dart';
 class WdcpScannerPanel extends StatelessWidget {
   final ScanRbwdcpService scan;
   final VoidCallback onFixNoTargets;
-  final VoidCallback onCsvTap;
+  final VoidCallback onExcelTap;
 
   const WdcpScannerPanel({
     super.key,
     required this.scan,
     required this.onFixNoTargets,
-    required this.onCsvTap,
+    required this.onExcelTap,
   });
 
   @override
@@ -83,7 +83,7 @@ class WdcpScannerPanel extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (scan.scanFilePath != null) ...[
-                    _buildCsvButton(context),
+                    _buildExcelButton(context),
                     const SizedBox(width: 6),
                   ],
                   _buildScanButton(context, scanColor),
@@ -178,11 +178,11 @@ class WdcpScannerPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildCsvButton(BuildContext context) {
+  Widget _buildExcelButton(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onCsvTap,
+        onTap: onExcelTap,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -198,7 +198,7 @@ class WdcpScannerPanel extends StatelessWidget {
               Icon(Icons.file_download_outlined,
                   size: 13, color: context.successColor),
               const SizedBox(width: 4),
-              Text("CSV",
+              Text("EXCEL",
                   style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,

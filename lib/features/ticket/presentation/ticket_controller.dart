@@ -38,6 +38,22 @@ enum QuickFilterPeriod {
 class TicketController extends ChangeNotifier {
   final _repo = TicketRepository();
 
+  bool _isDisposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
+    }
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    searchCtrl.dispose();
+    super.dispose();
+  }
+
   // ── State ─────────────────────────────────────────────────────
   List<TicketModel> allTickets = [];
   List<TicketModel> filteredTickets = [];
@@ -608,9 +624,4 @@ class TicketController extends ChangeNotifier {
   List<Map<String, dynamic>> get allAsMaps =>
       allTickets.map((t) => t.toJson()).toList();
 
-  @override
-  void dispose() {
-    searchCtrl.dispose();
-    super.dispose();
-  }
 }

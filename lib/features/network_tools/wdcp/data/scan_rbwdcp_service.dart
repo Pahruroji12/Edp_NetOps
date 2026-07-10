@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:edp_netops/core/platform/native_io.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:csv/csv.dart';
+import 'package:excel/excel.dart' hide Border;
 import 'package:intl/intl.dart';
 import '../../../../core/services/activity_logger.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
@@ -302,7 +302,7 @@ class ScanRbwdcpService extends ChangeNotifier {
     final ts = DateFormat('ddMMyyyy_HHmm').format(DateTime.now());
     _pendingFilePath =
         r'D:\Edp NetOps\scan Rbwdcp\ScanRBWDCP_'
-        '$ts.csv';
+        '$ts.xlsx';
 
     scanStatus = 'Mengambil konfigurasi API...';
     _throttledNotify(force: true);
@@ -373,21 +373,21 @@ class ScanRbwdcpService extends ChangeNotifier {
         no++;
       }
 
-      // ── Simpan CSV ─────────────────────────────────────────────────────
+      // ── Simpan Excel ─────────────────────────────────────────────────────
       if (scanResults.isNotEmpty) {
         scanStatus = cancelRequested
-            ? 'Menyimpan hasil parsial ke CSV...'
-            : 'Menyimpan ke CSV...';
+            ? 'Menyimpan hasil parsial ke Excel...'
+            : 'Menyimpan ke Excel...';
         _throttledNotify(force: true);
-        scanFilePath = await _saveCsv(scanResults, path: _pendingFilePath);
+        scanFilePath = await _saveExcel(scanResults, path: _pendingFilePath);
       }
 
       await ActivityLogger.logAction(
         actionType: 'SCAN_RBWDCP',
         description: cancelRequested
-            ? 'Scan dibatalkan — $scanCompleted/$scanTotal'
+            ? 'Scan dibatalkan (Excel parsial) — $scanCompleted/$scanTotal'
             : 'Scan selesai — $scanTotal router, $scanSuccess berhasil, '
-                  '$scanAuthActive default-auth aktif',
+                  '$scanAuthActive default-auth aktif (Excel)',
       );
 
       isScanning = false;
@@ -411,32 +411,53 @@ class ScanRbwdcpService extends ChangeNotifier {
     }
   }
 
-  Future<String> _saveCsv(List<ScanResultModel> data, {String? path}) async {
+  Future<String> _saveExcel(List<ScanResultModel> data, {String? path}) async {
     final dir = Directory(r'D:\Edp NetOps\scan Rbwdcp');
     if (!dir.existsSync()) dir.createSync(recursive: true);
 
-    final filePath =
-        path ??
-        '${dir.path}\\ScanRBWDCP_'
-            '${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.csv';
+    final ts = DateFormat('ddMMyyyy_HHmm').format(DateTime.now());
+    final filePath = path?.replaceAll('.csv', '.xlsx') ?? '${dir.path}\\ScanRBWDCP_$ts.xlsx';
 
-    final rows = <List<dynamic>>[
-      [
-        'No',
-        'Kode Toko',
-        'Nama Toko',
-        'IP RBWCP',
-        'Koneksi',
-        'Interface',
-        'Default Auth',
-        'Keterangan',
-      ],
+    final excel = Excel.createExcel();
+    final sheet = excel['Scan RBWDCP'];
+    excel.setDefaultSheet('Scan RBWDCP');
+    excel.delete('Sheet1');
+
+    final headerStyle = CellStyle(
+      bold: true,
+      fontColorHex: ExcelColor.fromHexString('000000'),
+      backgroundColorHex: ExcelColor.fromHexString('D9D9D9'),
+      horizontalAlign: HorizontalAlign.Center,
+    );
+
+    final headers = [
+      'No',
+      'Kode Toko',
+      'Nama Toko',
+      'IP RBWCP',
+      'Koneksi',
+      'Interface',
+      'Default Auth',
+      'Keterangan',
     ];
 
+    for (int i = 0; i < headers.length; i++) {
+      final cell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0),
+      );
+      cell.value = TextCellValue(headers[i]);
+      cell.cellStyle = headerStyle;
+    }
+
+    final centerStyle = CellStyle(
+      horizontalAlign: HorizontalAlign.Center,
+    );
+
+    final List<List<String>> rows = [];
     for (final r in data) {
       if (r.wlanResults.isEmpty) {
         rows.add([
-          r.no,
+          '${r.no}',
           r.storeCode,
           r.storeName,
           r.ip,
@@ -448,7 +469,7 @@ class ScanRbwdcpService extends ChangeNotifier {
       } else {
         for (final w in r.wlanResults) {
           rows.add([
-            r.no,
+            '${r.no}',
             r.storeCode,
             r.storeName,
             r.ip,
@@ -461,12 +482,31 @@ class ScanRbwdcpService extends ChangeNotifier {
       }
     }
 
-    final csv = const ListToCsvConverter(
-      fieldDelimiter: '|',
-      eol: '\n',
-    ).convert(rows);
+    for (int r = 0; r < rows.length; r++) {
+      final row = rows[r];
+      for (int c = 0; c < row.length; c++) {
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r + 1),
+        );
+        cell.value = TextCellValue(row[c]);
 
-    await File(filePath).writeAsString(csv);
+        // Rata tengah untuk kolom No, Kode Toko, IP, Default Auth, dan Keterangan
+        if (c == 0 || c == 1 || c == 3 || c == 6 || c == 7) {
+          cell.cellStyle = centerStyle;
+        }
+      }
+    }
+
+    final colWidths = [6.0, 12.0, 30.0, 18.0, 15.0, 15.0, 15.0, 25.0];
+    for (int i = 0; i < colWidths.length; i++) {
+      sheet.setColumnWidth(i, colWidths[i]);
+    }
+
+    final bytes = excel.save();
+    if (bytes == null) {
+      throw Exception('Gagal generate file Excel');
+    }
+    await File(filePath).writeAsBytes(bytes);
     return filePath;
   }
 }

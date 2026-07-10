@@ -37,6 +37,12 @@ class StoreDetailController extends ChangeNotifier with NotificationMixin {
   Color pingColor = const Color(0xFF7A9CC4);
   String latency = '';
 
+  // Map untuk menyimpan hasil ping tiap IP
+  final Map<String, PingServiceResult> ipPingResults = {};
+  
+  // Set untuk mencatat IP yang sedang melakukan pengecekan (loading state)
+  final Set<String> activeChecks = {};
+
   // ── Notification (via NotificationMixin) ──────────────────────
   /// Error dialog signal — page pops dialog when set.
   String? pendingErrorTitle;
@@ -52,19 +58,36 @@ class StoreDetailController extends ChangeNotifier with NotificationMixin {
 
   bool get isMobile => PlatformHelper.isMobile;
 
+  // ── Getter All IPs ───────────────────────────────────────────
+  List<String> get _allConfiguredIps {
+    final ips = <String>[];
+    void addIfValid(String? ip) {
+      if (ip != null && ip.isNotEmpty && ip != '-') {
+        ips.add(ip.trim());
+      }
+    }
+    addIfValid(currentStore.ipGateway);
+    addIfValid(currentStore.ipVsat);
+    addIfValid(currentStore.ipRbWdcp);
+    addIfValid(currentStore.ipStation1);
+    addIfValid(currentStore.ipStation2);
+    addIfValid(currentStore.ipStation3);
+    addIfValid(currentStore.ipStation4);
+    addIfValid(currentStore.ipStation5);
+    addIfValid(currentStore.ipIkiosk);
+    addIfValid(currentStore.ipTimbangan);
+    addIfValid(currentStore.ipCctv1);
+    addIfValid(currentStore.ipCctv2);
+    addIfValid(currentStore.ipStb);
+    return ips;
+  }
+
   // ── Init ──────────────────────────────────────────────────────
 
   void init(StoreModel store) {
     currentStore = store;
     if (!isMobile && FeatureAvailability.canUsePing) {
-      final ip = store.ipGateway;
-      if (ip != null && ip.isNotEmpty) {
-        performPing();
-      } else {
-        pingStatus = 'IP Gateway Kosong';
-        pingColor = const Color(0xFFFFB347);
-        notifyListeners();
-      }
+      checkAllIps();
     } else if (isMobile || PlatformHelper.isWeb) {
       // Pada Web/Mobile, ping tidak tersedia
       pingStatus = '-';
@@ -75,6 +98,49 @@ class StoreDetailController extends ChangeNotifier with NotificationMixin {
 
   // ── Ping ──────────────────────────────────────────────────────
 
+  Future<void> checkIpStatus(String ip) async {
+    if (activeChecks.contains(ip)) return;
+
+    activeChecks.add(ip);
+    notifyListeners();
+
+    final result = await performSinglePing(ip);
+    ipPingResults[ip] = result;
+
+    activeChecks.remove(ip);
+    notifyListeners();
+  }
+
+  Future<void> checkAllIps() async {
+    if (isMobile || PlatformHelper.isWeb || !FeatureAvailability.canUsePing) return;
+
+    // Bersihkan state lama
+    ipPingResults.clear();
+    activeChecks.clear();
+    notifyListeners();
+
+    final ips = _allConfiguredIps;
+    if (ips.isEmpty) {
+      pingStatus = 'IP Gateway Kosong';
+      pingColor = const Color(0xFFFFB347);
+      notifyListeners();
+      return;
+    }
+
+    final gatewayIp = currentStore.ipGateway;
+    final futures = <Future<void>>[];
+
+    for (final ip in ips) {
+      if (ip == gatewayIp) {
+        futures.add(performPing());
+      } else {
+        futures.add(checkIpStatus(ip));
+      }
+    }
+
+    await Future.wait(futures);
+  }
+
   Future<void> performPing() async {
     if (!FeatureAvailability.canUsePing) return;
 
@@ -84,9 +150,11 @@ class StoreDetailController extends ChangeNotifier with NotificationMixin {
     pingStatus = 'Mengecek koneksi...';
     pingColor = const Color(0xFF7A9CC4);
     latency = '';
+    activeChecks.add(ip);
     notifyListeners();
 
     final result = await performSinglePing(ip);
+    ipPingResults[ip] = result;
 
     if (result.success) {
       pingColor = const Color(0xFF00E676);
@@ -96,6 +164,8 @@ class StoreDetailController extends ChangeNotifier with NotificationMixin {
       pingColor = const Color(0xFFFF6B6B);
       pingStatus = result.statusText == 'OFFLINE' ? 'OFFLINE' : 'GAGAL';
     }
+
+    activeChecks.remove(ip);
     notifyListeners();
   }
 
@@ -237,7 +307,7 @@ class StoreDetailController extends ChangeNotifier with NotificationMixin {
         hasChanged = true;
         isLoading = false;
         notifyListeners();
-        await performPing();
+        await checkAllIps();
       },
     );
   }

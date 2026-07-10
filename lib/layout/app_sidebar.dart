@@ -122,6 +122,7 @@ class _AppSidebarState extends State<AppSidebar> {
                   icon: Icons.electrical_services_rounded,
                   isExpanded: [
                     '/ping',
+                    '/rekap-stb',
                     '/scan-wdcp',
                   ].contains(widget.currentRoute),
                   children: [
@@ -135,6 +136,19 @@ class _AppSidebarState extends State<AppSidebar> {
                           if (!isDesktop) Navigator.pop(context);
                           if (widget.currentRoute != '/ping') {
                             context.go('/ping');
+                          }
+                        },
+                      ),
+                    if (FeatureAvailability.canUsePing)
+                      SidebarItem(
+                        icon: Icons.table_chart_outlined,
+                        label: 'Rekap STB 24 Jam',
+                        isActive: widget.currentRoute == '/rekap-stb',
+                        isSubMenu: true,
+                        onTap: () {
+                          if (!isDesktop) Navigator.pop(context);
+                          if (widget.currentRoute != '/rekap-stb') {
+                            context.go('/rekap-stb');
                           }
                         },
                       ),

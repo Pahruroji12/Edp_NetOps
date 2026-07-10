@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:edp_netops/core/theme/app_colors.dart';
+import 'package:edp_netops/core/widgets/theme_toggle_button.dart';
 import 'sidebar_item.dart';
 
 class SidebarFooter extends StatelessWidget {
@@ -21,15 +22,24 @@ class SidebarFooter extends StatelessWidget {
           color: context.borderColor,
         ),
         const SizedBox(height: 8),
-        SidebarItem(
-          icon: Icons.logout_outlined,
-          label: 'Keluar Aplikasi',
-          iconColor: const Color(0xFFFF6B6B),
-          labelColor: const Color(0xFFFF6B6B),
-          onTap: onLogoutTap,
+        Row(
+          children: [
+            Expanded(
+              child: SidebarItem(
+                icon: Icons.logout_outlined,
+                label: 'Keluar Aplikasi',
+                iconColor: const Color(0xFFFF6B6B),
+                labelColor: const Color(0xFFFF6B6B),
+                onTap: onLogoutTap,
+              ),
+            ),
+            const ThemeToggleButton(),
+            const SizedBox(width: 12),
+          ],
         ),
         const SizedBox(height: 24),
       ],
     );
   }
 }
+

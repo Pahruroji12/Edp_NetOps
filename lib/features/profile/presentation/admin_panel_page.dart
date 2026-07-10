@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../layout/main_layout.dart';
+import 'package:edp_netops/core/widgets/app_hamburger_button.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../core/globals.dart';
 import '../../../core/theme/app_colors.dart';
@@ -115,11 +115,7 @@ class _AdminPanelPageState extends State<AdminPanelPage>
       automaticallyImplyLeading: false,
       leading: context.isDesktop
           ? null
-          : IconButton(
-              icon: Icon(Icons.menu_rounded, color: context.textPrimary),
-              onPressed: () =>
-                  MainLayout.scaffoldKey.currentState?.openDrawer(),
-            ),
+          : const Center(child: AppHamburgerButton()),
       iconTheme: IconThemeData(color: context.textPrimary),
       title: Row(
         children: [
@@ -146,47 +142,43 @@ class _AdminPanelPageState extends State<AdminPanelPage>
           ),
           const Spacer(),
           // Refresh button
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _ctrl.fetchAll,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                margin:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: context.accentColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: context.accentColor.withOpacity(0.25),
+          Center(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _ctrl.fetchAll,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: context.accentColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: context.accentColor.withOpacity(0.2)),
                   ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.refresh_outlined,
-                      color: context.accentColor,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      "Refresh",
-                      style: TextStyle(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.refresh_outlined,
                         color: context.accentColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                        size: 13,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 5),
+                      Text(
+                        "Refresh",
+                        style: TextStyle(
+                          color: context.accentColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 16),
         ],
       ),
       bottom: PreferredSize(

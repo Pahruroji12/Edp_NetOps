@@ -21,7 +21,18 @@ class StoreListController extends ChangeNotifier {
 
   final searchController = TextEditingController();
 
-  static const filterChips = ['Semua', 'FO', 'VSAT', 'GSM', 'XL'];
+  static const filterChips = [
+    'Semua',
+    'Astinet',
+    'Icon',
+    'Astinet SDWAN',
+    'Icon SDWAN',
+    'Fiberstar SDWAN',
+    'Starlink SDWAN',
+    'VSAT',
+    'GSM',
+    'XL',
+  ];
 
   // ── Auth ──────────────────────────────────────────────────────
   bool get isAdminOrAbove => RoleHelper.isAdminOrAbove;
@@ -64,10 +75,18 @@ class StoreListController extends ChangeNotifier {
 
       final conn = (store.connectionType ?? '').toLowerCase();
       switch (activeFilter) {
-        case 'FO':
-          return conn.contains('astinet') ||
-              conn.contains('icon') ||
-              conn.contains('fiberstar');
+        case 'Astinet':
+          return conn.contains('astinet') && !conn.contains('sdwan');
+        case 'Icon':
+          return conn.contains('icon') && !conn.contains('sdwan');
+        case 'Astinet SDWAN':
+          return conn.contains('astinet') && conn.contains('sdwan');
+        case 'Icon SDWAN':
+          return conn.contains('icon') && conn.contains('sdwan');
+        case 'Fiberstar SDWAN':
+          return conn.contains('fiberstar') && conn.contains('sdwan');
+        case 'Starlink SDWAN':
+          return conn.contains('starlink') && conn.contains('sdwan');
         case 'VSAT':
           return conn.contains('vsat') || (store.ipVsat?.isNotEmpty == true);
         case 'GSM':
@@ -87,6 +106,35 @@ class StoreListController extends ChangeNotifier {
     applyFilters();
   }
 
+  int getActiveFilterCount() {
+    if (activeFilter == 'Semua') return allStores.length;
+    return allStores.where((store) {
+      final conn = (store.connectionType ?? '').toLowerCase();
+      switch (activeFilter) {
+        case 'Astinet':
+          return conn.contains('astinet') && !conn.contains('sdwan');
+        case 'Icon':
+          return conn.contains('icon') && !conn.contains('sdwan');
+        case 'Astinet SDWAN':
+          return conn.contains('astinet') && conn.contains('sdwan');
+        case 'Icon SDWAN':
+          return conn.contains('icon') && conn.contains('sdwan');
+        case 'Fiberstar SDWAN':
+          return conn.contains('fiberstar') && conn.contains('sdwan');
+        case 'Starlink SDWAN':
+          return conn.contains('starlink') && conn.contains('sdwan');
+        case 'VSAT':
+          return conn.contains('vsat') || (store.ipVsat?.isNotEmpty == true);
+        case 'GSM':
+          return conn.contains('gsm') || conn.contains('orbit');
+        case 'XL':
+          return conn.contains('xl');
+        default:
+          return false;
+      }
+    }).length;
+  }
+
   void clearSearch() {
     searchController.clear();
     applyFilters();
@@ -101,6 +149,7 @@ class StoreListController extends ChangeNotifier {
     if (l.contains('astinet')) return const Color(0xFF29B6F6);
     if (l.contains('icon')) return const Color(0xFF26C6DA);
     if (l.contains('fiberstar')) return const Color(0xFF66BB6A);
+    if (l.contains('starlink')) return const Color(0xFF5C6BC0);
     if (l.contains('orbit')) return const Color(0xFFEF5350);
     if (l.contains('xl') || l.contains('tun')) return const Color(0xFFAB47BC);
     if (l.contains('indosat') || l.contains('isat')) {

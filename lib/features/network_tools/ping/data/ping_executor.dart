@@ -1,6 +1,6 @@
 import 'package:edp_netops/core/platform/native_io.dart';
 
-import 'package:csv/csv.dart';
+import 'package:excel/excel.dart' hide Border;
 import 'package:intl/intl.dart';
 
 import '../domain/ping_result.dart';
@@ -41,6 +41,7 @@ class PingExecutor {
     }
 
     return PingResult(
+      storeCode: target.storeCode,
       storeName: target.storeName,
       deviceType: target.deviceType,
       ip: target.ip,
@@ -49,39 +50,96 @@ class PingExecutor {
     );
   }
 
-  /// Simpan hasil ping ke file CSV.
+  /// Simpan hasil ping ke file Excel (.xlsx).
   ///
-  /// Return: path file CSV yang tersimpan.
+  /// Return: path file Excel yang tersimpan.
   /// Throws: Exception jika gagal menulis file.
-  Future<String> saveToCsv({
+  Future<String> saveToExcel({
     required List<PingResult> results,
     required String outputDir,
     bool isAutoRun = false,
   }) async {
-    // Header CSV (sama format dengan versi lama)
-    final List<List<dynamic>> csvData = [
-      ['Nama Toko', 'Jenis Perangkat', 'IP Address', 'Status', 'Waktu Pengecekan'],
-    ];
+    final excel = Excel.createExcel();
+    final sheet = excel['Hasil Ping'];
+    excel.setDefaultSheet('Hasil Ping');
 
-    // Data rows
-    for (final result in results) {
-      csvData.add(result.toCsvRow());
+    // Hapus sheet default bawaan library jika ada
+    excel.delete('Sheet1');
+
+    // Style header reusable
+    final headerStyle = CellStyle(
+      bold: true,
+      fontColorHex: ExcelColor.fromHexString('000000'),
+      backgroundColorHex: ExcelColor.fromHexString('D9D9D9'),
+      horizontalAlign: HorizontalAlign.Center,
+    );
+
+    // List header kolom
+    final headers = ['No', 'Kode Toko', 'Nama Toko', 'Jenis Perangkat', 'IP Address', 'Status', 'Waktu Pengecekan'];
+
+    // Tulis header ke sheet
+    for (int i = 0; i < headers.length; i++) {
+      final cell = sheet.cell(
+        CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0),
+      );
+      cell.value = TextCellValue(headers[i]);
+      cell.cellStyle = headerStyle;
     }
 
-    // Pastikan direktori ada
+    final centerStyle = CellStyle(
+      horizontalAlign: HorizontalAlign.Center,
+    );
+
+    // Tulis baris data
+    final timeFmt = DateFormat('dd/MM/yyyy HH:mm:ss');
+    for (int r = 0; r < results.length; r++) {
+      final res = results[r];
+      final row = [
+        '${r + 1}',
+        res.storeCode,
+        res.storeName,
+        res.deviceType,
+        res.ip,
+        res.statusLabel,
+        timeFmt.format(res.timestamp.toLocal()),
+      ];
+
+      for (int c = 0; c < row.length; c++) {
+        final cell = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: c, rowIndex: r + 1),
+        );
+        cell.value = TextCellValue(row[c]);
+
+        // Berikan styling khusus berdasarkan kolom (No, Kode Toko, IP Address, Status, Waktu Pengecekan diratakan tengah)
+        if (c == 0 || c == 1 || c == 4 || c == 5 || c == 6) {
+          cell.cellStyle = centerStyle;
+        }
+      }
+    }
+
+    // Atur lebar kolom agar tidak terpotong dan terlihat rapi
+    final colWidths = [6.0, 12.0, 30.0, 20.0, 16.0, 12.0, 22.0];
+    for (int i = 0; i < colWidths.length; i++) {
+      sheet.setColumnWidth(i, colWidths[i]);
+    }
+
+    // Pastikan direktori tujuan ekspor ada
     final dir = Directory(outputDir);
     if (!dir.existsSync()) {
       dir.createSync(recursive: true);
     }
 
-    // Generate filename (sama format dengan versi lama)
+    // Generate nama file
     final timestamp = DateFormat('ddMMyyyy_HHmm').format(DateTime.now());
     final prefix = isAutoRun ? 'AutoPing_STB' : 'Hasil_Ping';
-    final filePath = '${dir.path}\\${prefix}_$timestamp.csv';
+    final filePath = '${dir.path}\\${prefix}_$timestamp.xlsx';
 
-    // Tulis CSV
-    final csvContent = const ListToCsvConverter().convert(csvData);
-    await File(filePath).writeAsString(csvContent);
+    // Simpan bytes file Excel
+    final bytes = excel.save();
+    if (bytes == null) {
+      throw Exception('Gagal generate file Excel');
+    }
+    await File(filePath).writeAsBytes(bytes);
 
     return filePath;
   }

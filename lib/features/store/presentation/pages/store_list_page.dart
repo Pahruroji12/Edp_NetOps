@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:edp_netops/core/widgets/app_hamburger_button.dart';
 import '../../domain/store_model.dart';
 import '../../presentation/controllers/store_list_controller.dart';
 
@@ -10,7 +10,6 @@ import '../../../../../core/widgets/custom_snackbar.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/utils/responsive_helper.dart';
 import '../../../../../core/utils/export_helper.dart';
-import '../../../../../layout/main_layout.dart';
 import 'package:edp_netops/core/widgets/app_loading_indicator.dart';
 import 'package:edp_netops/core/widgets/app_empty_state.dart';
 import 'package:edp_netops/core/widgets/page_entry_transition.dart';
@@ -72,6 +71,7 @@ class _StoreListPageState extends State<StoreListPage> {
                         ? _buildEmptyState()
                         : _buildStoreList(),
                   ),
+                  _buildFooter(),
                 ],
               ),
             ),
@@ -82,36 +82,39 @@ class _StoreListPageState extends State<StoreListPage> {
   // FAB
   // ==========================================
   Widget _buildFab() {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: context.accentColor.withOpacity(0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (c) => const StoreFormPage()),
-          );
-          if (result == true) _fetchStores();
-        },
-        backgroundColor: context.accentColor,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        icon: Icon(Icons.add_rounded, color: context.primaryColor, size: 20),
-        label: Text(
-          "Toko Baru",
-          style: TextStyle(
-            color: context.primaryColor,
-            fontWeight: FontWeight.w800,
-            fontSize: 13,
-            letterSpacing: 0.5,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 40),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: context.accentColor.withOpacity(0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: FloatingActionButton.extended(
+          onPressed: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (c) => const StoreFormPage()),
+            );
+            if (result == true) _fetchStores();
+          },
+          backgroundColor: context.accentColor,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          icon: Icon(Icons.add_rounded, color: context.primaryColor, size: 20),
+          label: Text(
+            "Toko Baru",
+            style: TextStyle(
+              color: context.primaryColor,
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              letterSpacing: 0.5,
+            ),
           ),
         ),
       ),
@@ -144,76 +147,59 @@ class _StoreListPageState extends State<StoreListPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (_, constraints) {
-              final isWide = constraints.maxWidth >= 480;
-              return Row(
+          Row(
+            children: [
+              // Hamburger hanya di mobile — buka drawer MainLayout
+              if (!isDesktop) ...[
+                const AppHamburgerButton(),
+                const SizedBox(width: 14),
+              ],
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Hamburger hanya di mobile — buka drawer MainLayout
-                  if (!isDesktop) ...[
-                    _buildIconButton(
-                      icon: Icons.menu_rounded,
-                      onTap: () =>
-                          MainLayout.scaffoldKey.currentState?.openDrawer(),
-                    ),
-                    const SizedBox(width: 14),
-                  ],
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: BoxDecoration(
-                              color: context.accentColor,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: context.accentColor.withOpacity(0.7),
-                                  blurRadius: 8,
-                                ),
-                              ],
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: context.accentColor,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: context.accentColor.withOpacity(0.7),
+                              blurRadius: 8,
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            "DATA TOKO",
-                            style: TextStyle(
-                              color: context.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 2.5,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(width: 8),
                       Text(
-                        "${_filteredStores.length} dari ${_allStores.length} toko",
+                        "DATA TOKO",
                         style: TextStyle(
-                          color: context.textSecondary,
-                          fontSize: 11,
+                          color: context.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 2.5,
                         ),
                       ),
                     ],
                   ),
-                  const Spacer(),
-                  if (isWide) ...[
-                    _buildStatBadge(
-                      "${_allStores.length}",
-                      "TOTAL",
-                      context.accentColor,
+                  const SizedBox(height: 2),
+                  Text(
+                    "${_filteredStores.length} dari ${_allStores.length} toko",
+                    style: TextStyle(
+                      color: context.textSecondary,
+                      fontSize: 11,
                     ),
-                    const SizedBox(width: 8),
-                  ],
-                  _buildExportButton(),
-                  const SizedBox(width: 8),
-                  _buildRefreshButton(),
+                  ),
                 ],
-              );
-            },
+              ),
+              const Spacer(),
+              _buildExportButton(),
+              const SizedBox(width: 6),
+              _buildRefreshButton(),
+            ],
           ),
           const SizedBox(height: 14),
           _buildSearchBar(),
@@ -224,29 +210,8 @@ class _StoreListPageState extends State<StoreListPage> {
     );
   }
 
-  Widget _buildIconButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.all(9),
-          decoration: BoxDecoration(
-            color: context.surfaceColor,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: context.borderColor),
-          ),
-          child: Icon(icon, color: context.textPrimary, size: 18),
-        ),
-      ),
-    );
-  }
-
   Widget _buildExportButton() {
+    final color = context.successColor;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -265,28 +230,29 @@ class _StoreListPageState extends State<StoreListPage> {
             }
           }
         },
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
-            color: context.successColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: context.successColor.withOpacity(0.25)),
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withOpacity(0.2)),
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.download_rounded,
-                color: context.successColor,
-                size: 14,
+                color: color,
+                size: 13,
               ),
               const SizedBox(width: 5),
               Text(
                 "Export",
                 style: TextStyle(
-                  color: context.successColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -297,66 +263,35 @@ class _StoreListPageState extends State<StoreListPage> {
   }
 
   Widget _buildRefreshButton() {
+    final color = context.accentColor;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: _fetchStores,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
-            color: context.accentColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: context.accentColor.withOpacity(0.25)),
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withOpacity(0.2)),
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.refresh_rounded, color: context.accentColor, size: 14),
+              Icon(Icons.refresh_rounded, color: color, size: 13),
               const SizedBox(width: 5),
               Text(
                 "Refresh",
                 style: TextStyle(
-                  color: context.accentColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatBadge(String value, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.25)),
-      ),
-      child: Row(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontSize: 13,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              color: color.withOpacity(0.7),
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -428,13 +363,7 @@ class _StoreListPageState extends State<StoreListPage> {
           final isActive = _controller.activeFilter == chip;
           final Color chipColor = chip == 'Semua'
               ? context.accentColor
-              : chip == 'FO'
-              ? const Color(0xFF29B6F6)
-              : chip == 'VSAT'
-              ? const Color(0xFFFFB74D)
-              : chip == 'GSM'
-              ? const Color(0xFFFF7043)
-              : const Color(0xFFAB47BC);
+              : StoreListController.connColor(chip);
 
           return Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -564,6 +493,67 @@ class _StoreListPageState extends State<StoreListPage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFooter() {
+    final total = _allStores.length;
+    final activeFilter = _controller.activeFilter;
+    final showFilterCount = activeFilter != 'Semua';
+    final count = _controller.getActiveFilterCount();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: context.cardColor,
+        border: Border(
+          top: BorderSide(color: context.borderColor.withOpacity(0.4)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline_rounded, size: 12, color: context.textSecondary),
+          const SizedBox(width: 6),
+          Text(
+            'Total $total toko',
+            style: TextStyle(
+              fontSize: 11,
+              color: context.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          if (showFilterCount) ...[
+            const SizedBox(width: 16),
+            _footerDot(
+              context,
+              StoreListController.connColor(activeFilter),
+              '$activeFilter: $count',
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _footerDot(BuildContext context, Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: context.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -172,18 +172,16 @@ class StoreFormIpSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: StoreFormWidgets.buildCardHeader(
-                  context: context,
-                  title: "Pengaturan IP Address",
-                  icon: Icons.device_hub_outlined,
-                  color: const Color(0xFF6C63FF),
-                ),
-              ),
-              // Tombol hapus semua IP
-              Tooltip(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 450;
+              final header = StoreFormWidgets.buildCardHeader(
+                context: context,
+                title: "Pengaturan IP Address",
+                icon: Icons.device_hub_outlined,
+                color: const Color(0xFF6C63FF),
+              );
+              final deleteButton = Tooltip(
                 message: 'Hapus semua IP',
                 child: InkWell(
                   onTap: controller.clearAllIp,
@@ -220,8 +218,27 @@ class StoreFormIpSection extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-            ],
+              );
+
+              if (isNarrow) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    header,
+                    const SizedBox(height: 12),
+                    deleteButton,
+                  ],
+                );
+              } else {
+                return Row(
+                  children: [
+                    Expanded(child: header),
+                    const SizedBox(width: 12),
+                    deleteButton,
+                  ],
+                );
+              }
+            },
           ),
           const SizedBox(height: 20),
 

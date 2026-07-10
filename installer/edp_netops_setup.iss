@@ -18,7 +18,7 @@
 ; ═══════════════════════════════════════════════════════════════════
 
 #define MyAppName "EDP NetOps"
-#define MyAppVersion "2.7.0"
+#define MyAppVersion "2.9.0"
 #define MyAppPublisher "Pahruroji"
 #define MyAppExeName "edp_netops.exe"
 

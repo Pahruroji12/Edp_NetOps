@@ -161,7 +161,7 @@ class _FtpPageState extends State<FtpPage> {
           Text(widget.storeName, style: TextStyle(color: context.textSecondary, fontSize: 10)),
         ]),
       ]),
-      actions: const [],
+
       bottom: PreferredSize(preferredSize: const Size.fromHeight(1), child: Container(height: 1, decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.transparent, context.accentColor.withOpacity(0.3), Colors.transparent])))),
     );
   }

@@ -6,6 +6,7 @@
 /// Mengganti return type `List<dynamic>` → typed object.
 ///
 class PingResult {
+  final String storeCode;
   final String storeName;
   final String deviceType;
   final String ip;
@@ -13,6 +14,7 @@ class PingResult {
   final DateTime timestamp;
 
   const PingResult({
+    required this.storeCode,
     required this.storeName,
     required this.deviceType,
     required this.ip,
@@ -22,14 +24,6 @@ class PingResult {
 
   /// Status string untuk CSV dan UI.
   String get statusLabel => isAlive ? 'OK' : 'NOK';
-
-  /// Konversi ke row CSV (sama format dengan ping_service.dart lama).
-  List<dynamic> toCsvRow() {
-    final hh = timestamp.hour.toString().padLeft(2, '0');
-    final mm = timestamp.minute.toString().padLeft(2, '0');
-    final ss = timestamp.second.toString().padLeft(2, '0');
-    return [storeName, deviceType, ip, statusLabel, '$hh:$mm:$ss'];
-  }
 }
 
 /// PingTarget — model untuk 1 target yang akan di-ping.
@@ -37,11 +31,13 @@ class PingResult {
 /// Digunakan internal oleh PingExecutor.
 ///
 class PingTarget {
+  final String storeCode;
   final String storeName;
   final String deviceType;
   final String ip;
 
   const PingTarget({
+    required this.storeCode,
     required this.storeName,
     required this.deviceType,
     required this.ip,

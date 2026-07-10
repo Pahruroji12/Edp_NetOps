@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/widgets/network_action_buttons.dart';
+import '../../../../../core/permissions/permission_helper.dart';
 import '../../../ticket/presentation/dialogs/ticket_dialog.dart';
 import '../../domain/store_model.dart';
 import '../../../../core/utils/connection_type_helper.dart';
@@ -55,11 +56,11 @@ class StorePingCard extends StatelessWidget {
         ],
         const SizedBox(height: 18),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          SolidActionButton(label: "Cek Ulang", icon: Icons.refresh_rounded, color: context.accentColor, onTap: ctrl.performPing),
+          SolidActionButton(label: "Cek Ulang", icon: Icons.refresh_rounded, color: context.accentColor, onTap: ctrl.checkAllIps),
           const SizedBox(width: 10),
           OutlineActionButton(label: "Ping CMD", icon: Icons.terminal_outlined, color: context.textSecondary,
             onTap: () { if (store.ipGateway?.isNotEmpty == true) ctrl.launchPingCmd(store.ipGateway!); }),
-          if (!ctrl.isMobile && _foTicketProviders.isNotEmpty) ...[
+          if (!ctrl.isMobile && _foTicketProviders.isNotEmpty && PermissionHelper.can(AppPermission.openTicket)) ...[
             const SizedBox(width: 10),
             _buildTicketButton(context),
           ],

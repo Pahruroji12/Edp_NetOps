@@ -59,6 +59,9 @@ class PingController extends ChangeNotifier with NotificationMixin {
   int okCount = 0;
   int nokCount = 0;
   int totalTarget = 0;
+  String? lastFilePath;
+  DateTime? scanStartTime;
+  DateTime? scanEndTime;
 
   // ── State: Auto-Ping ─────────────────────────────────────────
   bool isAutoPingSTBActive = false;
@@ -193,7 +196,10 @@ class PingController extends ChangeNotifier with NotificationMixin {
     okCount = 0;
     nokCount = 0;
     totalTarget = 0;
+    lastFilePath = null;
     statusText = 'Mengambil data toko dari database...';
+    scanStartTime = DateTime.now();
+    scanEndTime = null;
     notifyListeners();
 
     try {
@@ -239,15 +245,17 @@ class PingController extends ChangeNotifier with NotificationMixin {
         allResults.addAll(batchResults);
       }
 
-      // 3. Simpan ke CSV via executor
-      statusText = 'Menyimpan hasil ke CSV...';
+      // 3. Simpan ke Excel via executor
+      statusText = 'Menyimpan hasil ke Excel...';
       notifyListeners();
 
-      final filePath = await _executor.saveToCsv(
+      final filePath = await _executor.saveToExcel(
         results: allResults,
         outputDir: outputDir,
         isAutoRun: isAutoRun,
       );
+
+      lastFilePath = filePath;
 
       // 4. Log aktivitas
       await ActivityLogger.logAction(
@@ -261,6 +269,8 @@ class PingController extends ChangeNotifier with NotificationMixin {
       isScanning = false;
       progressValue = 1.0;
       statusText = 'Selesai! $okCount OK · $nokCount NOK · File: $filePath';
+      scanEndTime = DateTime.now();
+      config = config.copyWith(manualIps: '');
       notifyListeners();
 
       if (!isAutoRun) {
@@ -269,6 +279,8 @@ class PingController extends ChangeNotifier with NotificationMixin {
     } catch (e) {
       isScanning = false;
       statusText = 'Terjadi Kesalahan: $e';
+      scanEndTime = DateTime.now();
+      config = config.copyWith(manualIps: '');
       notifyListeners();
       if (!isAutoRun) {
         notifyError('Error: $e');

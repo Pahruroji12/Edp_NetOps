@@ -66,8 +66,18 @@ class DashboardController extends ChangeNotifier {
     searchController.addListener(() => runFilter(searchController.text));
   }
 
+  bool _isDisposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
+    }
+  }
+
   @override
   void dispose() {
+    _isDisposed = true;
     _timer?.cancel();
     searchController.dispose();
     scrollController.dispose();

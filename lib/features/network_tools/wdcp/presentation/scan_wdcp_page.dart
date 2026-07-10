@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/widgets/page_entry_transition.dart';
 import 'package:flutter/services.dart';
-
-import '../../../../layout/main_layout.dart';
+import 'package:edp_netops/core/widgets/app_hamburger_button.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive_helper.dart';
 import '../../../../core/widgets/section_header.dart';
@@ -104,7 +103,7 @@ class _ScanWdcpPageState extends State<ScanWdcpPage> {
                               'Tidak ada router dengan default-auth aktif.',
                               context.successColor,
                             ),
-                            onCsvTap: () => CustomSnackBar.show(
+                            onExcelTap: () => CustomSnackBar.show(
                               context,
                               'Disimpan di: ${_ctrl.scan.scanFilePath}',
                               context.successColor,
@@ -142,11 +141,7 @@ class _ScanWdcpPageState extends State<ScanWdcpPage> {
       automaticallyImplyLeading: false,
       leading: context.isDesktop
           ? null
-          : IconButton(
-              icon: Icon(Icons.menu_rounded, color: context.textPrimary),
-              onPressed: () =>
-                  MainLayout.scaffoldKey.currentState?.openDrawer(),
-            ),
+          : const Center(child: AppHamburgerButton()),
       iconTheme: IconThemeData(color: context.textPrimary),
       title: Row(
         children: [
@@ -186,45 +181,43 @@ class _ScanWdcpPageState extends State<ScanWdcpPage> {
         ],
       ),
       actions: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: _ctrl.fetchStores,
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 10),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: context.accentColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: context.accentColor.withOpacity(0.25),
+        Center(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _ctrl.fetchStores,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: context.accentColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: context.accentColor.withOpacity(0.2)),
                 ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.refresh_rounded,
-                    color: context.accentColor,
-                    size: 14,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    "Refresh",
-                    style: TextStyle(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.refresh_rounded,
                       color: context.accentColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                      size: 13,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 5),
+                    Text(
+                      "Refresh",
+                      style: TextStyle(
+                        color: context.accentColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 16),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),

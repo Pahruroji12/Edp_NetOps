@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:edp_netops/core/widgets/app_hamburger_button.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive_helper.dart';
 import '../../../../core/utils/role_helper.dart';
-import '../../../../layout/main_layout.dart';
 import '../ticket_controller.dart';
 import '../controllers/worker_controller.dart';
 import '../dialogs/worker_manager_dialog.dart';
@@ -45,11 +45,7 @@ class TicketHistoryHeader extends StatelessWidget {
       child: Row(
         children: [
           if (!isDesktop) ...[
-            _iconBtn(
-              context: context,
-              icon: Icons.menu_rounded,
-              onTap: () => MainLayout.scaffoldKey.currentState?.openDrawer(),
-            ),
+            const AppHamburgerButton(),
             const SizedBox(width: 12),
           ],
           Expanded(
@@ -247,28 +243,6 @@ class TicketHistoryHeader extends StatelessWidget {
     );
   }
 
-  Widget _iconBtn({
-    required BuildContext context,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: context.surfaceColor,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: context.borderColor.withOpacity(0.5)),
-          ),
-          child: Icon(icon, color: context.textPrimary, size: 16),
-        ),
-      ),
-    );
-  }
 
   Widget _actionBtn({
     required BuildContext context,

@@ -32,12 +32,14 @@ class PingRepository {
       final List<PingTarget> targets = [];
 
       for (final store in response) {
-        final namaToko = "${store['store_code']} - ${store['store_name']}";
+        final storeCode = store['store_code']?.toString() ?? '-';
+        final storeName = store['store_name']?.toString() ?? '-';
 
         void addTarget(String jenis, String? ip) {
           if (ip != null && ip.trim().isNotEmpty && ip != '-') {
             targets.add(PingTarget(
-              storeName: namaToko,
+              storeCode: storeCode,
+              storeName: storeName,
               deviceType: jenis,
               ip: ip.trim(),
             ));
@@ -59,6 +61,7 @@ class PingRepository {
           final ip = line.trim();
           if (ip.isNotEmpty) {
             targets.add(PingTarget(
+              storeCode: '-',
               storeName: 'Input Manual',
               deviceType: 'Custom IP',
               ip: ip,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../layout/main_layout.dart';
+import 'package:edp_netops/core/widgets/app_hamburger_button.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../../core/globals.dart';
 import '../../../core/theme/app_colors.dart';
@@ -193,11 +193,7 @@ class _ProfilePageState extends State<ProfilePage> {
       automaticallyImplyLeading: false,
       leading: context.isDesktop
           ? null
-          : IconButton(
-              icon: Icon(Icons.menu_rounded, color: context.textPrimary),
-              onPressed: () =>
-                  MainLayout.scaffoldKey.currentState?.openDrawer(),
-            ),
+          : const Center(child: AppHamburgerButton()),
       iconTheme: IconThemeData(color: context.textPrimary),
       title: Row(
         children: [
@@ -227,6 +223,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         ],
       ),
+
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Container(

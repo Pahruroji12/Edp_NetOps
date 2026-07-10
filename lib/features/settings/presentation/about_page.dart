@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-import 'package:edp_netops/layout/main_layout.dart';
+import 'package:edp_netops/core/widgets/app_hamburger_button.dart';
 import 'package:edp_netops/core/theme/app_colors.dart';
 import 'package:edp_netops/core/utils/responsive_helper.dart';
 import 'package:edp_netops/core/widgets/section_header.dart';
@@ -85,11 +85,7 @@ class _AboutPageState extends State<AboutPage> {
       automaticallyImplyLeading: false,
       leading: context.isDesktop
           ? null
-          : IconButton(
-              icon: Icon(Icons.menu_rounded, color: context.textPrimary),
-              onPressed: () =>
-                  MainLayout.scaffoldKey.currentState?.openDrawer(),
-            ),
+          : const Center(child: AppHamburgerButton()),
       iconTheme: IconThemeData(color: context.textPrimary),
       title: Row(
         children: [
@@ -119,6 +115,7 @@ class _AboutPageState extends State<AboutPage> {
           ),
         ],
       ),
+
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Container(
