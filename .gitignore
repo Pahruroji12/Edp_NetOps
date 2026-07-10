@@ -46,3 +46,6 @@ app.*.map.json
 
 # Menyembunyikan file rahasia
 .env
+
+# Inno Setup Installer Output
+/installer/installer_output/
