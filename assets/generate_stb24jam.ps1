@@ -288,6 +288,14 @@ try {
     $newSheet.Range("H3:H$maxRow").Formula = "=VLOOKUP(B3, '$($d2.Day)'!`$B`$3:`$O`$1000, 14, 0)"
     $newSheet.Range("I3:I$maxRow").Formula = "=VLOOKUP(B3, '$($d1.Day)'!`$B`$3:`$O`$1000, 14, 0)"
     
+    # --- BERIKAN FORMAT CONDITIONAL PADA KOLOM G, H, I ---
+    # Mewarnai sel "NOK" menjadi merah muda (background) & merah tua (teks), "OK" tetap putih
+    $formatRange = $newSheet.Range("G3:I$maxRow")
+    $formatRange.FormatConditions.Delete() | Out-Null
+    $condition = $formatRange.FormatConditions.Add(1, 3, "=`"NOK`"")
+    $condition.Interior.Color = 13551615 # Light Pink BGR (206, 199, 255)
+    $condition.Font.Color = 393372      # Dark Red BGR (6, 0, 156)
+    
     # --- UPDATE KOLOM PING (J, K, L, M) ---
     $ping00 = $resultFiles['JAM 00.00']
     $ping01 = $resultFiles['JAM 01.00']
@@ -298,6 +306,10 @@ try {
     $newSheet.Range("K3:K$maxRow").Formula = "=IFERROR(VLOOKUP(B3, '$ping01'!`$B`$2:`$F`$1000, 5, 0), ""NOK"")"
     $newSheet.Range("L3:L$maxRow").Formula = "=IFERROR(VLOOKUP(B3, '$ping02'!`$B`$2:`$F`$1000, 5, 0), ""NOK"")"
     $newSheet.Range("M3:M$maxRow").Formula = "=IFERROR(VLOOKUP(B3, '$ping03'!`$B`$2:`$F`$1000, 5, 0), ""NOK"")"
+    
+    # --- UPDATE KOLOM KETERANGAN (Q) ---
+    # Keterangan otomatis hanya jika jumlah NOK (TEST di kolom N) lebih dari 1 (> 1)
+    $newSheet.Range("Q3:Q$maxRow").Formula = "=IF(N3>1, ""PERLU CEK POWER STB SEBELUM TOKO TUTUP"", """")"
     
     # --- BACA DATA PING UNTUK REPORT TOKO TANPA DATA PING ---
     $pingLookups = @{
