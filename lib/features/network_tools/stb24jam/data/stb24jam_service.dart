@@ -109,7 +109,7 @@ class Stb24JamService {
   /// jam yang sama, ambil yang terakhir dimodifikasi.
   ///
   /// Return value: null kalau file untuk jam tsb tidak ditemukan.
-  Map<String, String?> resolvePingFilePaths(DateTime tanggal) {
+  Future<Map<String, String?>> resolvePingFilePaths(DateTime tanggal) async {
     final ddMMyyyy = DateFormat('ddMMyyyy').format(tanggal);
     final result = <String, String?>{
       'JAM 00.00': null,
@@ -119,7 +119,7 @@ class Stb24JamService {
     };
 
     final dir = Directory(hasilPingFolder);
-    if (!dir.existsSync()) return result;
+    if (!await dir.exists()) return result;
 
     final pattern = RegExp(
       '^AutoPing_STB_${ddMMyyyy}_(\\d{2})\\d{2}\\.xlsx\$',
@@ -128,21 +128,25 @@ class Stb24JamService {
 
     final candidates = <String, File>{}; // jamKey -> file terpilih sejauh ini
 
-    for (final entity in dir.listSync()) {
-      if (entity is! File) continue;
-      final name = entity.uri.pathSegments.last;
-      final match = pattern.firstMatch(name);
-      if (match == null) continue;
+    try {
+      await for (final entity in dir.list()) {
+        if (entity is! File) continue;
+        final name = entity.uri.pathSegments.last;
+        final match = pattern.firstMatch(name);
+        if (match == null) continue;
 
-      final jamPrefix = match.group(1)!; // '00' / '01' / '02' / '03'
-      final jamKey = _jamKeyFromPrefix(jamPrefix);
-      if (jamKey == null) continue;
+        final jamPrefix = match.group(1)!; // '00' / '01' / '02' / '03'
+        final jamKey = _jamKeyFromPrefix(jamPrefix);
+        if (jamKey == null) continue;
 
-      final existing = candidates[jamKey];
-      if (existing == null ||
-          entity.lastModifiedSync().isAfter(existing.lastModifiedSync())) {
-        candidates[jamKey] = entity;
+        final existing = candidates[jamKey];
+        if (existing == null ||
+            (await entity.lastModified()).isAfter(await existing.lastModified())) {
+          candidates[jamKey] = entity;
+        }
       }
+    } catch (_) {
+      // Abaikan error pembacaan folder, kembalikan data yang sempat terbaca
     }
 
     candidates.forEach((jamKey, file) => result[jamKey] = file.path);
@@ -263,6 +267,123 @@ class Stb24JamService {
         return GenerateResult(
           success: false,
           message: 'Gagal menafsirkan output JSON dari script.\n'
+              'Detail: $e\n'
+              'Raw Output: $stdout',
+        );
+      }
+    } catch (e) {
+      return GenerateResult(
+        success: false,
+        message: 'Gagal memanggil proses PowerShell: $e',
+      );
+    }
+  }
+
+  // -------------------------------------------------------------------
+  // REPORT TO TELEGRAM
+  // -------------------------------------------------------------------
+
+  String _resolveReportScriptPath() {
+    final sep = Platform.pathSeparator;
+    // 1. Cek di samping executable (release / production)
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    final exeScript =
+        File('$exeDir${sep}assets${sep}report_stb24jam_telegram.ps1');
+    if (exeScript.existsSync()) return exeScript.path;
+
+    // 2. Cek di root project (development / debug)
+    final cwdDir = Directory.current.path;
+    final cwdScript =
+        File('$cwdDir${sep}assets${sep}report_stb24jam_telegram.ps1');
+    if (cwdScript.existsSync()) return cwdScript.path;
+
+    // Fallback
+    return '$cwdDir${sep}assets${sep}report_stb24jam_telegram.ps1';
+  }
+
+  Future<GenerateResult> reportToTelegram({
+    required DateTime tanggal,
+    required String botToken,
+    required String chatId,
+  }) async {
+    final scriptPath = _resolveReportScriptPath();
+    if (!File(scriptPath).existsSync()) {
+      return GenerateResult(
+        success: false,
+        message: 'Script report tidak ditemukan di:\n$scriptPath',
+      );
+    }
+
+    final monthlyPath = getMonthlyFilePath(tanggal);
+    final monthlyFile = File(monthlyPath);
+    if (!monthlyFile.existsSync()) {
+      return GenerateResult(
+        success: false,
+        message: 'File bulanan tidak ditemukan:\n$monthlyPath',
+      );
+    }
+
+    // SheetName = tanggal hari saja (misal "10", "11")
+    final sheetName = tanggal.day.toString();
+
+    try {
+      final processResult = await Process.run(
+        'powershell.exe',
+        [
+          '-ExecutionPolicy', 'Bypass',
+          '-File', scriptPath,
+          '-MonthlyFile', monthlyPath,
+          '-SheetName', sheetName,
+          '-BotToken', botToken,
+          '-ChatId', chatId,
+        ],
+        runInShell: true,
+      );
+
+      final stdout = processResult.stdout.toString().trim();
+      final stderr = processResult.stderr.toString().trim();
+
+      if (processResult.exitCode != 0) {
+        try {
+          final lines = stdout.split('\n');
+          final lastLine = lines.lastWhere(
+              (l) => l.trim().startsWith('{') && l.trim().endsWith('}'));
+          final jsonMap = jsonDecode(lastLine) as Map<String, dynamic>;
+          return GenerateResult(
+            success: false,
+            message: jsonMap['message'] ??
+                'PowerShell process failed with code ${processResult.exitCode}',
+          );
+        } catch (_) {}
+
+        return GenerateResult(
+          success: false,
+          message: 'Gagal menjalankan script report.\n'
+              'Exit Code: ${processResult.exitCode}\n'
+              'Error: ${stderr.isNotEmpty ? stderr : stdout}',
+        );
+      }
+
+      // Parse JSON dari output
+      try {
+        final lines =
+            stdout.split('\r\n').expand((l) => l.split('\n')).toList();
+        final jsonLine = lines.lastWhere(
+            (l) => l.trim().startsWith('{') && l.trim().endsWith('}'));
+        final jsonMap = jsonDecode(jsonLine) as Map<String, dynamic>;
+        final message = jsonMap['message'] ?? 'Report selesai.';
+
+        return GenerateResult(
+          success: jsonMap['success'] == true,
+          message: message,
+          totalToko: jsonMap['totalToko'] ?? 0,
+          totalOk: jsonMap['totalOk'] ?? 0,
+          totalNok: jsonMap['totalNok'] ?? 0,
+        );
+      } catch (e) {
+        return GenerateResult(
+          success: false,
+          message: 'Gagal menafsirkan output JSON dari script report.\n'
               'Detail: $e\n'
               'Raw Output: $stdout',
         );

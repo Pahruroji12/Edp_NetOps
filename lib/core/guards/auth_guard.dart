@@ -1,6 +1,7 @@
 import '../../features/auth/domain/auth_state.dart';
 import '../permissions/permission_helper.dart';
 import '../platform/feature_availability.dart';
+import '../utils/role_helper.dart';
 
 /// AuthGuard — route-level security validation.
 ///
@@ -64,6 +65,13 @@ class AuthGuard {
           ? 'Ping Scanner'
           : (path == '/rekap-stb' ? 'Rekap STB 24 Jam' : 'Scan RbWDCP');
       return '/unsupported-feature?feature=$featureName';
+    }
+
+    // 3.5 Cek role khusus untuk /rekap-stb (sementara hanya Admin & Administrator)
+    if (path == '/rekap-stb') {
+      if (!RoleHelper.isAdminOrAbove) {
+        return '/dashboard';
+      }
     }
 
     // 4. Cek permission untuk route tertentu

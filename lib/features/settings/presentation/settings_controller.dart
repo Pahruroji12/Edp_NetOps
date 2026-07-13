@@ -66,6 +66,10 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
   final namaUserCtrl = TextEditingController();
   final passUserCtrl = TextEditingController();
 
+  // Telegram Configuration
+  final telegramBotTokenCtrl = TextEditingController();
+  final telegramChatIdCtrl = TextEditingController();
+
   // ── State: Password visibility toggles ──────────────────────
   bool obsKon = true;
   bool obsWdcp = true;
@@ -75,6 +79,7 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
   bool obsImap = true;
   bool obsFtp = true;
   bool obsManageUserPass = true;
+  bool obsTelegramToken = true;
 
   // ── State: User Management ──────────────────────────────────
   String selectedRole = 'user';
@@ -127,6 +132,11 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
     notifyListeners();
   }
 
+  void toggleObsTelegramToken() {
+    obsTelegramToken = !obsTelegramToken;
+    notifyListeners();
+  }
+
   // ── INISIALISASI ────────────────────────────────────────────
 
   void init() {
@@ -164,6 +174,8 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
         imapPassCtrl.text = data['imap_pass'] ?? '';
         ftpUserCtrl.text = data['ftp_user'] ?? '';
         ftpPassCtrl.text = data['ftp_pass'] ?? '';
+        telegramBotTokenCtrl.text = data['telegram_bot_token'] ?? '';
+        telegramChatIdCtrl.text = data['telegram_chat_id'] ?? '';
         notifyListeners();
       },
     );
@@ -238,6 +250,11 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
     {'key': 'ftp_user', 'value': ftpUserCtrl.text},
     {'key': 'ftp_pass', 'value': ftpPassCtrl.text},
   ], 'Credential FTP STB Disimpan!');
+
+  void saveTelegram() => savePartialSettings([
+    {'key': 'telegram_bot_token', 'value': telegramBotTokenCtrl.text},
+    {'key': 'telegram_chat_id', 'value': telegramChatIdCtrl.text},
+  ], 'Konfigurasi Telegram Bot Disimpan!');
 
   // ── USER MANAGEMENT ─────────────────────────────────────────
 
@@ -393,6 +410,8 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
     nikUserCtrl.dispose();
     namaUserCtrl.dispose();
     passUserCtrl.dispose();
+    telegramBotTokenCtrl.dispose();
+    telegramChatIdCtrl.dispose();
     super.dispose();
   }
 }

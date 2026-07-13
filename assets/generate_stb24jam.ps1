@@ -21,6 +21,179 @@ function Get-ColumnLetter($colIndex) {
     return $letter
 }
 
+# Helper function untuk menutup file Excel yang sedang terbuka
+function Close-ExcelFile {
+    param([string]$FilePath)
+    
+    try {
+        $excelProc = Get-Process -Name "EXCEL" -ErrorAction SilentlyContinue
+        if ($excelProc) {
+            $tempExcel = New-Object -ComObject Excel.Application -ErrorAction SilentlyContinue
+            if ($tempExcel) {
+                $tempExcel.DisplayAlerts = $false
+                foreach ($wb in $tempExcel.Workbooks) {
+                    if ($wb.FullName -eq $FilePath) {
+                        $wb.Close($false)
+                        break
+                    }
+                }
+                $tempExcel.Quit()
+                [System.Runtime.Interopservices.Marshal]::ReleaseComObject($tempExcel) | Out-Null
+            }
+        }
+    } catch {
+        # Silent fail - tidak masalah jika gagal menutup
+    }
+}
+
+# Helper function untuk mengekstrak kode toko dari file Excel hasil ping secara langsung (tanpa Excel COM)
+# Sangat cepat, efisien, dan menghindari crash COM/file lock.
+function Get-StoreCodesFromExcel {
+    param([string]$filePath)
+    
+    $storeCodes = @()
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($filePath)
+        
+        # 1. Baca shared strings
+        $sstEntry = $archive.Entries | Where-Object { $_.FullName -eq 'xl/sharedStrings.xml' }
+        $sharedStrings = @()
+        if ($sstEntry) {
+            $stream = $sstEntry.Open()
+            $reader = New-Object System.IO.StreamReader($stream)
+            $xmlText = $reader.ReadToEnd()
+            $reader.Close()
+            $stream.Close()
+            
+            $xmlSst = [xml]$xmlText
+            # Mengambil text di dalam <si><t> atau rich text <si><r><t>
+            $sharedStrings = $xmlSst.sst.si | ForEach-Object {
+                if ($_.t) {
+                    $_.t.'#text'
+                } else {
+                    ($_.r | ForEach-Object { $_.t.'#text' }) -join ''
+                }
+            }
+        }
+        
+        # 2. Baca data sheet1 (tabel utama)
+        $sheetEntry = $archive.Entries | Where-Object { $_.FullName -eq 'xl/worksheets/sheet1.xml' }
+        if ($sheetEntry) {
+            $stream = $sheetEntry.Open()
+            $reader = New-Object System.IO.StreamReader($stream)
+            $xmlText = $reader.ReadToEnd()
+            $reader.Close()
+            $stream.Close()
+            
+            $xmlSheet = [xml]$xmlText
+            $rows = $xmlSheet.worksheet.sheetData.row
+            foreach ($row in $rows) {
+                $rIndex = [int]$row.r
+                if ($rIndex -lt 2) { continue } # Lewati baris header (1)
+                
+                foreach ($c in $row.c) {
+                    # Cari sel pada Kolom B (Kode Toko)
+                    if ($c.r -like 'B*') {
+                        $val = $c.v
+                        if ($c.t -eq 's') {
+                            $idx = [int]$val
+                            $storeCodes += $sharedStrings[$idx]
+                        } else {
+                            $storeCodes += $val
+                        }
+                    }
+                }
+            }
+        }
+        $archive.Dispose()
+    } catch {
+        # Silent fail - kembalikan data kosong atau yang sudah terbaca
+    }
+    return $storeCodes
+}
+
+# Helper function untuk mengambil map status ping (Kode Toko -> Status) dari file Excel hasil ping secara langsung (tanpa Excel COM)
+function Get-PingStatusMapFromExcel {
+    param([string]$filePath)
+    
+    $statusMap = @{}
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($filePath)
+        
+        # 1. Baca shared strings
+        $sstEntry = $archive.Entries | Where-Object { $_.FullName -eq 'xl/sharedStrings.xml' }
+        $sharedStrings = @()
+        if ($sstEntry) {
+            $stream = $sstEntry.Open()
+            $reader = New-Object System.IO.StreamReader($stream)
+            $xmlText = $reader.ReadToEnd()
+            $reader.Close()
+            $stream.Close()
+            
+            $xmlSst = [xml]$xmlText
+            $sharedStrings = $xmlSst.sst.si | ForEach-Object {
+                if ($_.t) {
+                    $_.t.'#text'
+                } else {
+                    ($_.r | ForEach-Object { $_.t.'#text' }) -join ''
+                }
+            }
+        }
+        
+        # 2. Baca data sheet1 (tabel utama)
+        $sheetEntry = $archive.Entries | Where-Object { $_.FullName -eq 'xl/worksheets/sheet1.xml' }
+        if ($sheetEntry) {
+            $stream = $sheetEntry.Open()
+            $reader = New-Object System.IO.StreamReader($stream)
+            $xmlText = $reader.ReadToEnd()
+            $reader.Close()
+            $stream.Close()
+            
+            $xmlSheet = [xml]$xmlText
+            $rows = $xmlSheet.worksheet.sheetData.row
+            foreach ($row in $rows) {
+                $rIndex = [int]$row.r
+                if ($rIndex -lt 2) { continue } # Lewati baris header (1)
+                
+                $kodeToko = $null
+                $status = $null
+                
+                foreach ($c in $row.c) {
+                    # Ambil nilai dari Kolom B (Kode Toko)
+                    if ($c.r -like 'B*') {
+                        $val = $c.v
+                        if ($c.t -eq 's') {
+                            $kodeToko = $sharedStrings[[int]$val]
+                        } else {
+                            $kodeToko = $val
+                        }
+                    }
+                    # Ambil nilai dari Kolom F (Status - OK / NOK)
+                    elseif ($c.r -like 'F*') {
+                        $val = $c.v
+                        if ($c.t -eq 's') {
+                            $status = $sharedStrings[[int]$val]
+                        } else {
+                            $status = $val
+                        }
+                    }
+                }
+                
+                if ($kodeToko -and $status) {
+                    $statusMap[$kodeToko] = $status
+                }
+            }
+        }
+        $archive.Dispose()
+    } catch {
+        # Silent fail
+    }
+    return $statusMap
+}
+
+
 try {
     $tanggal = [datetime]::ParseExact($TanggalStr, "dd-MM-yyyy", [System.Globalization.CultureInfo]::InvariantCulture)
 } catch {
@@ -132,7 +305,28 @@ if (-not (Test-Path -Path $MonthlyFile)) {
         $initExcel.Visible = $false
         $initExcel.DisplayAlerts = $false
         
-        $initWorkbook = $initExcel.Workbooks.Open($MonthlyFile, 0, $false)
+        # Tutup file jika sedang terbuka
+        Close-ExcelFile -FilePath $MonthlyFile
+        
+        # Retry mechanism untuk membuka file
+        $maxRetries = 3
+        $retryCount = 0
+        $workbookOpened = $false
+        
+        while (-not $workbookOpened -and $retryCount -lt $maxRetries) {
+            try {
+                $initWorkbook = $initExcel.Workbooks.Open($MonthlyFile, 0, $false)
+                $workbookOpened = $true
+            } catch {
+                $retryCount++
+                if ($retryCount -lt $maxRetries) {
+                    Start-Sleep -Seconds 2
+                    Close-ExcelFile -FilePath $MonthlyFile
+                } else {
+                    throw "Gagal membuka file Excel setelah $maxRetries percobaan: $($_.Exception.Message)"
+                }
+            }
+        }
         
         # 1. Hapus sheet harian yang tidak diperlukan (simpan hanya 3 hari terakhir dari bulan lalu)
         $keepDays = @(
@@ -220,8 +414,28 @@ $excel.Visible = $false
 $excel.DisplayAlerts = $false
 
 try {
-    # Buka workbook bulanan dengan UpdateLinks = 0 (jangan auto-update)
-    $workbook = $excel.Workbooks.Open($MonthlyFile, 0, $false)
+    # Tutup file jika sedang terbuka
+    Close-ExcelFile -FilePath $MonthlyFile
+    
+    # Retry mechanism untuk membuka file
+    $maxRetries = 3
+    $retryCount = 0
+    $workbookOpened = $false
+    
+    while (-not $workbookOpened -and $retryCount -lt $maxRetries) {
+        try {
+            $workbook = $excel.Workbooks.Open($MonthlyFile, 0, $false)
+            $workbookOpened = $true
+        } catch {
+            $retryCount++
+            if ($retryCount -lt $maxRetries) {
+                Start-Sleep -Seconds 2
+                Close-ExcelFile -FilePath $MonthlyFile
+            } else {
+                throw "Gagal membuka file Excel setelah $maxRetries percobaan. `nPastikan file tidak sedang dibuka di aplikasi lain dan tidak di-lock. `nDetail Error: $($_.Exception.Message)"
+            }
+        }
+    }
     
     $day = $tanggal.Day
     $yesterday = $tanggal.AddDays(-1)
@@ -302,12 +516,50 @@ try {
     $ping02 = $resultFiles['JAM 02.00']
     $ping03 = $resultFiles['JAM 03.00']
     
-    $newSheet.Range("J3:J$maxRow").Formula = "=IFERROR(VLOOKUP(B3, '$ping00'!`$B`$2:`$F`$1000, 5, 0), ""NOK"")"
-    $newSheet.Range("K3:K$maxRow").Formula = "=IFERROR(VLOOKUP(B3, '$ping01'!`$B`$2:`$F`$1000, 5, 0), ""NOK"")"
-    $newSheet.Range("L3:L$maxRow").Formula = "=IFERROR(VLOOKUP(B3, '$ping02'!`$B`$2:`$F`$1000, 5, 0), ""NOK"")"
-    $newSheet.Range("M3:M$maxRow").Formula = "=IFERROR(VLOOKUP(B3, '$ping03'!`$B`$2:`$F`$1000, 5, 0), ""NOK"")"
+    $statusMap00 = Get-PingStatusMapFromExcel -filePath $ping00
+    $statusMap01 = Get-PingStatusMapFromExcel -filePath $ping01
+    $statusMap02 = Get-PingStatusMapFromExcel -filePath $ping02
+    $statusMap03 = Get-PingStatusMapFromExcel -filePath $ping03
+
+    # Tulis data ping langsung ke sel sebagai VALUE (bukan formula VLOOKUP)
+    # Ini 100% aman dari file corrupt dan tidak memerlukan Excel COM untuk membaca file ping
+    for ($r = 3; $r -le $maxRow; $r++) {
+        $kodeToko = $newSheet.Cells.Item($r, 2).Text
+        if ($kodeToko) {
+            # Jam 00.00
+            $val00 = "NOK"
+            if ($statusMap00.ContainsKey($kodeToko)) { $val00 = $statusMap00[$kodeToko] }
+            $newSheet.Cells.Item($r, 10).Value2 = $val00
+            
+            # Jam 01.00
+            $val01 = "NOK"
+            if ($statusMap01.ContainsKey($kodeToko)) { $val01 = $statusMap01[$kodeToko] }
+            $newSheet.Cells.Item($r, 11).Value2 = $val01
+
+            # Jam 02.00
+            $val02 = "NOK"
+            if ($statusMap02.ContainsKey($kodeToko)) { $val02 = $statusMap02[$kodeToko] }
+            $newSheet.Cells.Item($r, 12).Value2 = $val02
+
+            # Jam 03.00
+            $val03 = "NOK"
+            if ($statusMap03.ContainsKey($kodeToko)) { $val03 = $statusMap03[$kodeToko] }
+            $newSheet.Cells.Item($r, 13).Value2 = $val03
+        }
+    }
     
-    # --- UPDATE KOLOM KETERANGAN (Q) ---
+    # --- BERIKAN FORMAT CONDITIONAL PADA KOLOM J, K, L, M (Jam 00-03) ---
+    # Mewarnai sel "NOK" menjadi Light Red Fill with Dark Red Text
+    $pingFormatRange = $newSheet.Range("J3:M$maxRow")
+    $pingFormatRange.FormatConditions.Delete() | Out-Null
+    $pingCondition = $pingFormatRange.FormatConditions.Add(1, 3, "=`"NOK`"")
+    $pingCondition.Interior.Color = 13551615 # Light Pink BGR (206, 199, 255)
+    $pingCondition.Font.Color = 393372       # Dark Red BGR (6, 0, 156)
+    
+    # --- UPDATE KOLOM TEST (N) & CEK (O) & KETERANGAN (Q) ---
+    $newSheet.Range("N3:N$maxRow").Formula = "=COUNTIF(J3:M3, ""NOK"")"
+    $newSheet.Range("O3:O$maxRow").Formula = "=IF(N3>=2, ""NOK"", ""OK"")"
+    
     # Keterangan otomatis hanya jika jumlah NOK (TEST di kolom N) lebih dari 1 (> 1)
     $newSheet.Range("Q3:Q$maxRow").Formula = "=IF(N3>1, ""PERLU CEK POWER STB SEBELUM TOKO TUTUP"", """")"
     
@@ -322,18 +574,12 @@ try {
     foreach ($jam in $pingKeys) {
         $filePath = $resultFiles[$jam]
         if ($filePath) {
-            $pw = $excel.Workbooks.Open($filePath, 0, $true)
-            $psheet = $pw.Worksheets.Item(1)
-            $pMaxRow = $psheet.Cells.Item($psheet.Rows.Count, 2).End(-4162).Row
-            for ($pr = 2; $pr -le $pMaxRow; $pr++) {
-                $pkode = $psheet.Cells.Item($pr, 2).Text
+            $storeCodes = Get-StoreCodesFromExcel -filePath $filePath
+            foreach ($pkode in $storeCodes) {
                 if ($pkode) {
                     $pingLookups[$jam][$pkode] = $true
                 }
             }
-            $pw.Close($false)
-            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($psheet) | Out-Null
-            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($pw) | Out-Null
         }
     }
     

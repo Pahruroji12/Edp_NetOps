@@ -8,6 +8,7 @@ import 'package:edp_netops/core/widgets/custom_snackbar.dart';
 import 'package:edp_netops/core/error/failures.dart';
 import 'package:edp_netops/core/permissions/feature_access.dart';
 import 'package:edp_netops/core/platform/feature_availability.dart';
+import 'package:edp_netops/core/utils/role_helper.dart';
 import 'package:edp_netops/features/auth/data/auth_repository.dart';
 
 import 'widgets/sidebar_item.dart';
@@ -139,7 +140,7 @@ class _AppSidebarState extends State<AppSidebar> {
                           }
                         },
                       ),
-                    if (FeatureAvailability.canUsePing)
+                    if (FeatureAvailability.canUsePing && RoleHelper.isAdminOrAbove)
                       SidebarItem(
                         icon: Icons.table_chart_outlined,
                         label: 'Rekap STB 24 Jam',

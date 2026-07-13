@@ -7,6 +7,9 @@ import '../../../../core/utils/responsive_helper.dart';
 import 'package:edp_netops/core/widgets/app_hamburger_button.dart';
 import 'stb24jam_controller.dart';
 import '../data/stb24jam_service.dart';
+import '../data/stb24jam_repository.dart';
+import '../../../ticket/presentation/widgets/custom_calendar_popup.dart';
+import '../../../auth/domain/auth_state.dart';
 
 class Stb24JamPage extends StatefulWidget {
   const Stb24JamPage({super.key});
@@ -17,18 +20,28 @@ class Stb24JamPage extends StatefulWidget {
 
 class _Stb24JamPageState extends State<Stb24JamPage> {
   late final Stb24JamController _controller;
+  final ScrollController _historyScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _controller = Stb24JamController();
     _controller.addListener(_onControllerChanged);
+    
+    // Non-blocking initialization after page is rendered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _controller.refreshFilePaths();
+        _controller.loadHistory();
+      }
+    });
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
     _controller.dispose();
+    _historyScrollController.dispose();
     super.dispose();
   }
 
@@ -39,25 +52,11 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
   }
 
   Future<void> _pickDate(Stb24JamController controller) async {
-    final picked = await showDatePicker(
+    final picked = await CustomCalendarPopup.show(
       context: context,
       initialDate: controller.tanggal,
       firstDate: DateTime(2024),
       lastDate: DateTime(2100),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
-              primary: context.accentColor,
-              onPrimary: context.primaryColor,
-              surface: context.cardColor,
-              onSurface: context.textPrimary,
-            ),
-            dialogBackgroundColor: context.surfaceColor,
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null) {
       controller.setTanggal(picked);
@@ -82,12 +81,35 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
     }
   }
 
+  Future<void> _report(Stb24JamController controller) async {
+    await controller.report();
+    if (!mounted) return;
+  }
+
+  Future<void> _confirmDelete(BuildContext context, String id) async {
+    final confirm = await showConfirmDialog(
+      context,
+      title: 'Hapus Riwayat?',
+      message:
+          'Apakah Anda yakin ingin menghapus entri riwayat ini secara permanen dari database?',
+      confirmLabel: 'Hapus',
+      cancelLabel: 'Batal',
+      isDanger: true,
+      icon: Icons.delete_forever_rounded,
+    );
+
+    if (confirm == true) {
+      await _controller.deleteHistory(id);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    final monthlyPath = controller.service.getMonthlyFilePath(controller.tanggal);
-    final pingPaths = controller.service.resolvePingFilePaths(controller.tanggal);
-    final hasMissingPingFiles = pingPaths.values.any((path) => path == null);
+
+    final monthlyPath = controller.monthlyPath;
+    final pingPaths = controller.pingPaths;
+    final hasMissingPingFiles = controller.hasMissingPingFiles;
 
     return Scaffold(
       backgroundColor: context.surfaceColor,
@@ -107,86 +129,87 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Bagian Tanggal ──
+                    // ── Bagian Konfigurasi & Berkas ──
                     const SectionHeader(
-                      title: "PILIH TANGGAL REKAP",
-                      icon: Icons.calendar_today_outlined,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildCard(
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: context.accentColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: context.accentColor.withOpacity(0.2),
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.date_range_rounded,
-                              color: context.accentColor,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Tanggal Terpilih",
-                                  style: TextStyle(
-                                    color: context.textSecondary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${controller.tanggal.day.toString().padLeft(2, '0')}/${controller.tanggal.month.toString().padLeft(2, '0')}/${controller.tanggal.year}',
-                                  style: TextStyle(
-                                    color: context.textPrimary,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () => _pickDate(controller),
-                            icon: const Icon(Icons.edit_calendar_rounded, size: 16),
-                            label: const Text('Pilih Tanggal'),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: context.borderColor),
-                              foregroundColor: context.textPrimary,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // ── Bagian Berkas ──
-                    const SectionHeader(
-                      title: "BERKAS YANG AKAN DIPROSES",
-                      icon: Icons.folder_open_outlined,
+                      title: "KONFIGURASI & BERKAS REKAP",
+                      icon: Icons.settings_system_daydream_outlined,
                     ),
                     const SizedBox(height: 12),
                     _buildCard(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Baris Pemilih Tanggal
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: context.accentColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: context.accentColor.withOpacity(0.2),
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.date_range_rounded,
+                                  color: context.accentColor,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Tanggal Terpilih",
+                                      style: TextStyle(
+                                        color: context.textSecondary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${controller.tanggal.day.toString().padLeft(2, '0')}/${controller.tanggal.month.toString().padLeft(2, '0')}/${controller.tanggal.year}',
+                                      style: TextStyle(
+                                        color: context.textPrimary,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () => _pickDate(controller),
+                                icon: const Icon(
+                                  Icons.edit_calendar_rounded,
+                                  size: 16,
+                                ),
+                                label: const Text('Pilih Tanggal'),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(color: context.borderColor),
+                                  foregroundColor: context.textPrimary,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Divider(
+                              color: context.borderColor.withOpacity(0.6),
+                            ),
+                          ),
+                          // Daftar Berkas
                           _buildFileRow(
                             icon: Icons.table_chart_rounded,
                             iconColor: context.secondaryAccent,
@@ -194,12 +217,14 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                             path: monthlyPath,
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Divider(color: context.borderColor.withOpacity(0.5)),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Divider(
+                              color: context.borderColor.withOpacity(0.3),
+                            ),
                           ),
                           ...pingPaths.entries.map((e) {
                             return Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
+                              padding: const EdgeInsets.only(bottom: 10.0),
                               child: _buildFileRow(
                                 icon: Icons.network_check_rounded,
                                 iconColor: context.accentColor,
@@ -211,42 +236,106 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
 
                     // ── Tombol Aksi ──
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: (controller.loading || hasMissingPingFiles) ? null : () => _generate(controller),
-                        icon: controller.loading
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: context.primaryColor,
-                                ),
-                              )
-                            : Icon(Icons.auto_fix_high_rounded, color: context.primaryColor),
-                        label: Text(
-                          controller.loading ? 'Memproses Rekap STB...' : 'Generate Sheet STB 24 Jam',
-                          style: TextStyle(
-                            color: context.primaryColor,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
+                    Row(
+                      children: [
+                        // Tombol Generate
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed:
+                                (controller.loading ||
+                                    controller.reporting ||
+                                    hasMissingPingFiles)
+                                ? null
+                                : () => _generate(controller),
+                            icon: controller.loading
+                                ? SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: context.primaryColor,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.auto_fix_high_rounded,
+                                    color: context.primaryColor,
+                                  ),
+                            label: Text(
+                              controller.loading
+                                  ? 'Memproses...'
+                                  : 'Generate Sheet STB 24 Jam',
+                              style: TextStyle(
+                                color: context.primaryColor,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: context.accentColor,
+                              disabledBackgroundColor: context.accentColor
+                                  .withOpacity(0.3),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              elevation: 0,
+                              shadowColor: context.accentColor.withOpacity(0.3),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
                           ),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: context.accentColor,
-                          disabledBackgroundColor: context.accentColor.withOpacity(0.3),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          elevation: 0,
-                          shadowColor: context.accentColor.withOpacity(0.3),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        const SizedBox(width: 12),
+                        // Tombol Report ke Telegram
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed:
+                                (controller.loading ||
+                                    controller.reporting ||
+                                    hasMissingPingFiles)
+                                ? null
+                                : () => _report(controller),
+                            icon: controller.reporting
+                                ? SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.send_rounded,
+                                    color: Colors.white,
+                                  ),
+                            label: Text(
+                              controller.reporting
+                                  ? 'Mengirim...'
+                                  : 'Report ke Telegram',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF26A5E4),
+                              disabledBackgroundColor: const Color(
+                                0xFF26A5E4,
+                              ).withOpacity(0.3),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              elevation: 0,
+                              shadowColor: const Color(
+                                0xFF26A5E4,
+                              ).withOpacity(0.3),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                     if (hasMissingPingFiles) ...[
                       const SizedBox(height: 12),
@@ -262,7 +351,11 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.error_outline_rounded, color: context.dangerColor, size: 16),
+                            Icon(
+                              Icons.error_outline_rounded,
+                              color: context.dangerColor,
+                              size: 16,
+                            ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -281,7 +374,8 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                     const SizedBox(height: 24),
 
                     // ── Ringkasan Hasil Terakhir ──
-                    if (controller.lastResult != null && controller.lastResult!.success) ...[
+                    if (controller.lastResult != null &&
+                        controller.lastResult!.success) ...[
                       const SectionHeader(
                         title: "RINGKASAN REKAPITULASI",
                         icon: Icons.analytics_outlined,
@@ -289,6 +383,15 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                       const SizedBox(height: 12),
                       _buildSummaryCard(controller.lastResult!),
                     ],
+                    const SizedBox(height: 24),
+
+                    // ── Riwayat Aktivitas ──
+                    const SectionHeader(
+                      title: "RIWAYAT AKTIVITAS",
+                      icon: Icons.history_rounded,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildHistorySection(controller),
                   ],
                 ),
               ),
@@ -415,9 +518,13 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
               ),
               const SizedBox(height: 2),
               Text(
-                isMissing ? 'Berkas tidak ditemukan di folder Hasil Ping!' : path,
+                isMissing
+                    ? 'Berkas tidak ditemukan di folder Hasil Ping!'
+                    : path,
                 style: TextStyle(
-                  color: isMissing ? context.dangerColor.withOpacity(0.8) : context.textSecondary,
+                  color: isMissing
+                      ? context.dangerColor.withOpacity(0.8)
+                      : context.textSecondary,
                   fontSize: 11,
                   fontFamily: isMissing ? null : 'monospace',
                   fontStyle: isMissing ? FontStyle.italic : null,
@@ -477,7 +584,11 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.warning_amber_rounded, color: context.warningColor, size: 16),
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: context.warningColor,
+                      size: 16,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -524,6 +635,213 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
           ),
         ),
       ],
+    );
+  }
+
+  // ── History Section ──────────────────────────────────────────
+
+  Widget _buildHistorySection(Stb24JamController controller) {
+    if (controller.historyLoading && controller.historyItems.isEmpty) {
+      return _buildCard(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: context.accentColor,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (controller.historyItems.isEmpty) {
+      return _buildCard(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.history_rounded,
+                  size: 32,
+                  color: context.textSecondary.withOpacity(0.3),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Belum ada riwayat aktivitas',
+                  style: TextStyle(color: context.textSecondary, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final showScroll = controller.historyItems.length > 4;
+
+    final historyList = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < controller.historyItems.length; i++) ...[
+          if (i > 0)
+            Divider(color: context.borderColor.withOpacity(0.5), height: 20),
+          _buildHistoryRow(controller.historyItems[i]),
+        ],
+      ],
+    );
+
+    return _buildCard(
+      child: showScroll
+          ? ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 270),
+              child: Scrollbar(
+                controller: _historyScrollController,
+                thumbVisibility: true,
+                child: SingleChildScrollView(
+                  controller: _historyScrollController,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.only(right: 12),
+                  child: historyList,
+                ),
+              ),
+            )
+          : historyList,
+    );
+  }
+
+  Widget _buildHistoryRow(Stb24JamHistoryItem item) {
+    final isGenerate = item.actionType == 'generate';
+    final actionLabel = isGenerate ? 'Generate Sheet' : 'Report Telegram';
+    final actionIcon = isGenerate
+        ? Icons.auto_fix_high_rounded
+        : Icons.send_rounded;
+    final actionColor = isGenerate
+        ? context.accentColor
+        : const Color(0xFF26A5E4);
+
+    final tanggalStr =
+        '${item.tanggal.day.toString().padLeft(2, '0')}/'
+        '${item.tanggal.month.toString().padLeft(2, '0')}/'
+        '${item.tanggal.year}';
+
+    final local = item.createdAt.toLocal();
+    final waktuStr =
+        '${local.day.toString().padLeft(2, '0')}/'
+        '${local.month.toString().padLeft(2, '0')}/'
+        '${local.year} '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+
+    final userRole = AuthState.instance.role.toLowerCase();
+    final isRootOrSuper = userRole == 'root' || userRole == 'administrator';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: actionColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(actionIcon, size: 16, color: actionColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '$actionLabel \u2014 $tanggalStr',
+                        style: TextStyle(
+                          color: context.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            (item.success
+                                    ? context.successColor
+                                    : context.dangerColor)
+                                .withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color:
+                              (item.success
+                                      ? context.successColor
+                                      : context.dangerColor)
+                                  .withOpacity(0.2),
+                        ),
+                      ),
+                      child: Text(
+                        item.success ? 'Sukses' : 'Gagal',
+                        style: TextStyle(
+                          color: item.success
+                              ? context.successColor
+                              : context.dangerColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (item.success && item.totalToko > 0) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'OK : ${item.totalOk} | NOK : ${item.totalNok} \u2014 dari ${item.totalToko} toko',
+                    style: TextStyle(
+                      color: context.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 4),
+                Text(
+                  '${item.userName ?? 'Unknown'} \u2022 $waktuStr',
+                  style: TextStyle(
+                    color: context.textSecondary.withOpacity(0.7),
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isRootOrSuper) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(
+                Icons.delete_outline_rounded,
+                size: 18,
+                color: context.dangerColor.withOpacity(0.8),
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              splashRadius: 16,
+              onPressed: () => _confirmDelete(context, item.id),
+              tooltip: 'Hapus Riwayat',
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

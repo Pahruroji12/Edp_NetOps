@@ -75,6 +75,7 @@ Name: "worker"; Description: "Background Ticket Sync Worker"; Types: host
 Source: "{#FlutterBuildDir}\{#MyAppExeName}"; DestDir: "{app}"; Components: app; Flags: ignoreversion
 Source: "{#FlutterBuildDir}\*.dll"; DestDir: "{app}"; Components: app; Flags: ignoreversion
 Source: "{#FlutterBuildDir}\data\*"; DestDir: "{app}\data"; Components: app; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#AssetsDir}\*.ps1"; DestDir: "{app}\assets"; Components: app; Flags: ignoreversion
 
 ; ── File Konfigurasi Lingkungan (.env) ──────────────────────────
 ; PENTING: File .env berisi credentials Supabase.
@@ -128,6 +129,7 @@ Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: IsSilent
 Type: filesandordirs; Name: "{app}\worker"
 Type: filesandordirs; Name: "{app}\tools"
 Type: filesandordirs; Name: "{app}\data"
+Type: filesandordirs; Name: "{app}\assets"
 
 ; ═══════════════════════════════════════════════════════════════════
 ;  KODE PASCAL CUSTOM

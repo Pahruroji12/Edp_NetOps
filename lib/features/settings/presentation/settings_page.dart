@@ -125,6 +125,13 @@ class _SettingsPageState extends State<SettingsPage> {
                             ),
                             const SizedBox(height: 12),
                             ImapConfigSection(ctrl: _ctrl),
+                            const SizedBox(height: 24),
+                            const SectionHeader(
+                              title: "KONFIGURASI TELEGRAM BOT",
+                              icon: Icons.send_rounded,
+                            ),
+                            const SizedBox(height: 12),
+                            TelegramConfigSection(ctrl: _ctrl),
                           ] else ...[
                             const SettingsRestrictedAccess(),
                           ],

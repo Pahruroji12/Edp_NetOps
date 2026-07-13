@@ -519,6 +519,80 @@ class ImapConfigSection extends StatelessWidget {
 }
 
 // ══════════════════════════════════════════════════════════════
+// TELEGRAM CONFIG SECTION
+// ══════════════════════════════════════════════════════════════
+
+class TelegramConfigSection extends StatelessWidget {
+  final SettingsController ctrl;
+
+  const TelegramConfigSection({super.key, required this.ctrl});
+
+  @override
+  Widget build(BuildContext context) {
+    const telegramColor = Color(0xFF0088CC); // Telegram Blue
+    return SettingsCard(
+      accentLeft: telegramColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SettingsCardHeader(
+            title: "Konfigurasi Telegram Bot",
+            subtitle: "Pengaturan Token Bot Telegram dan Chat ID Penerima untuk pengiriman rekap otomatis.",
+            icon: Icons.send_rounded,
+            color: telegramColor,
+          ),
+          const SizedBox(height: 20),
+
+          SettingsResponsiveRow(
+            threshold: 520,
+            children: [
+              Expanded(
+                child: SettingsSubCard(
+                  title: "TELEGRAM CREDENTIALS",
+                  icon: Icons.settings_cell_outlined,
+                  accentColor: telegramColor,
+                  child: Column(
+                    children: [
+                      SettingsTextField(
+                        "Bot API Token",
+                        ctrl.telegramBotTokenCtrl,
+                        prefixIcon: Icons.token_outlined,
+                        isPass: true,
+                        isObs: ctrl.obsTelegramToken,
+                        onObsToggle: ctrl.toggleObsTelegramToken,
+                        helperText: "Token bot telegram dari BotFather",
+                      ),
+                      const SizedBox(height: 10),
+                      SettingsTextField(
+                        "Telegram Chat ID",
+                        ctrl.telegramChatIdCtrl,
+                        prefixIcon: Icons.chat_bubble_outline_rounded,
+                        helperText: "Chat ID grup atau channel penerima. Contoh: -100123456789",
+                      ),
+                      const SizedBox(height: 14),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: SettingsSmallButton(
+                          label: "Simpan Telegram",
+                          color: telegramColor,
+                          icon: Icons.save_outlined,
+                          onPressed: ctrl.saveTelegram,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 // USER MANAGEMENT SECTION
 // ══════════════════════════════════════════════════════════════
 
