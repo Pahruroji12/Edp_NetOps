@@ -661,21 +661,69 @@ class _SlaScraperPageState extends State<SlaScraperPage> {
   }
 
   Widget _buildConsoleLine(BuildContext context, String line) {
+    // Pola regex untuk mendeteksi: {timestamp} [TAG] {pesan}
+    final regex = RegExp(r'^(.+?\s)\[(INFO|WARNING|ERROR)\](.*)$');
+    final match = regex.firstMatch(line);
+
+    if (match != null) {
+      final timestamp = match.group(1)!;
+      final tag = match.group(2)!;
+      final message = match.group(3)!;
+
+      Color tagColor;
+      switch (tag) {
+        case 'INFO':
+          tagColor = const Color(0xFF00E5FF); // Soft cyan/blue
+          break;
+        case 'WARNING':
+          tagColor = context.warningColor;
+          break;
+        case 'ERROR':
+          tagColor = context.dangerColor;
+          break;
+        default:
+          tagColor = context.textSecondary;
+      }
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: RichText(
+          text: TextSpan(
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12,
+              color: context.textPrimary.withOpacity(0.85),
+            ),
+            children: [
+              TextSpan(
+                text: timestamp,
+                style: TextStyle(color: context.textSecondary.withOpacity(0.6)),
+              ),
+              TextSpan(
+                text: '[$tag]',
+                style: TextStyle(
+                  color: tagColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextSpan(
+                text: message,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Fallback jika format tidak menggunakan [INFO]/[ERROR]
     Color color = context.textPrimary.withOpacity(0.85);
     bool isBold = false;
 
-    if (line.contains('[INFO]')) {
-      color = context.textPrimary.withOpacity(0.8);
-    } else if (line.contains('[WARNING]')) {
-      color = context.warningColor;
-    } else if (line.contains('[ERROR]')) {
-      color = context.dangerColor;
-      isBold = true;
-    } else if (line.startsWith('OK -')) {
+    if (line.startsWith('OK -') || line.startsWith('OK \u2014')) {
       color = context.successColor;
       isBold = true;
-    } else if (line.startsWith('[system]')) {
-      color = Colors.blueAccent;
+    } else if (line.startsWith('Menyiapkan koneksi') || line.startsWith('Proses dibatalkan')) {
+      color = context.accentColor;
     }
 
     return Padding(
