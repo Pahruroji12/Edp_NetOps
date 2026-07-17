@@ -1,3 +1,7 @@
+<div align="center">
+
+<img src="assets/logo.png" alt="EDP NetOps Logo" width="120" height="120" style="border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);"/>
+
 # EDP NetOps
 
 **Platform Terintegrasi untuk IT Support & Network Operations Departemen EDP**
@@ -5,6 +9,16 @@
 EDP NetOps adalah platform monitoring dan manajemen operasional IT yang dirancang khusus untuk memfasilitasi kebutuhan Departemen EDP. Sistem ini membantu mengelola ratusan data jaringan toko/cabang, memantau riwayat tiket gangguan, menyediakan alat analisis data provider, serta mengotomatisasi pencatatan nomor tiket gangguan dari email provider ke database pusat.
 
 Aplikasi ini memiliki arsitektur modular yang terbagi menjadi aplikasi klien berbasis Flutter (dioptimalkan secara aman untuk lintas platform) dan layanan background sync daemon berbasis Node.js/TypeScript yang bertugas menyinkronkan email provider secara otomatis.
+
+---
+
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=flat-square&logo=flutter&logoColor=white)](https://flutter.dev)
+[![Dart](https://img.shields.io/badge/Dart-%5E3.9.2-0175C2?style=flat-square&logo=dart&logoColor=white)](https://dart.dev)
+[![Supabase](https://img.shields.io/badge/Supabase-2.12.x-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3.x-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![NodeJS](https://img.shields.io/badge/Node.js-20.x-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+
+</div>
 
 ---
 
