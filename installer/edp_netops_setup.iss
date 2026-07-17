@@ -18,7 +18,7 @@
 ; ═══════════════════════════════════════════════════════════════════
 
 #define MyAppName "EDP NetOps"
-#define MyAppVersion "2.9.0"
+#define MyAppVersion "3.0.0"
 #define MyAppPublisher "Pahruroji"
 #define MyAppExeName "edp_netops.exe"
 
@@ -76,6 +76,7 @@ Source: "{#FlutterBuildDir}\{#MyAppExeName}"; DestDir: "{app}"; Components: app;
 Source: "{#FlutterBuildDir}\*.dll"; DestDir: "{app}"; Components: app; Flags: ignoreversion
 Source: "{#FlutterBuildDir}\data\*"; DestDir: "{app}\data"; Components: app; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#AssetsDir}\*.ps1"; DestDir: "{app}\assets"; Components: app; Flags: ignoreversion
+Source: "D:\DartProject\edp_netops\dist\sla_scraper.exe"; DestDir: "{app}\tools"; Components: app; Flags: ignoreversion
 
 ; ── File Konfigurasi Lingkungan (.env) ──────────────────────────
 ; PENTING: File .env berisi credentials Supabase.

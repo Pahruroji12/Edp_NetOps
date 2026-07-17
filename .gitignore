@@ -48,4 +48,8 @@ app.*.map.json
 .env
 
 # Inno Setup Installer Output
-/installer/installer_output/
+/installer/installer_output/
+
+# PyInstaller & Python compilation outputs
+/dist/
+__pycache__/

@@ -114,6 +114,45 @@ class _AppSidebarState extends State<AppSidebar> {
                 },
               ),
 
+              // ── GRUP BARU: REPORTING ──
+              if (RoleHelper.isAdminOrAbove) ...[
+                const SizedBox(height: 8),
+                SidebarDropdown(
+                  title: 'Reporting',
+                  icon: Icons.analytics_outlined,
+                  isExpanded: [
+                    '/rekap-stb',
+                    '/rekap-sla',
+                  ].contains(widget.currentRoute),
+                  children: [
+                    SidebarItem(
+                      icon: Icons.table_chart_outlined,
+                      label: 'Rekap STB 24 Jam',
+                      isActive: widget.currentRoute == '/rekap-stb',
+                      isSubMenu: true,
+                      onTap: () {
+                        if (!isDesktop) Navigator.pop(context);
+                        if (widget.currentRoute != '/rekap-stb') {
+                          context.go('/rekap-stb');
+                        }
+                      },
+                    ),
+                    SidebarItem(
+                      icon: Icons.assignment_outlined,
+                      label: 'Rekap SLA / Dispensasi',
+                      isActive: widget.currentRoute == '/rekap-sla',
+                      isSubMenu: true,
+                      onTap: () {
+                        if (!isDesktop) Navigator.pop(context);
+                        if (widget.currentRoute != '/rekap-sla') {
+                          context.go('/rekap-sla');
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+
               // ── GRUP 1: NETWORK TOOLS ──
               if (FeatureAccess.canShowNetworkTools &&
                   FeatureAvailability.canUseNetworkTools) ...[
@@ -123,7 +162,6 @@ class _AppSidebarState extends State<AppSidebar> {
                   icon: Icons.electrical_services_rounded,
                   isExpanded: [
                     '/ping',
-                    '/rekap-stb',
                     '/scan-wdcp',
                   ].contains(widget.currentRoute),
                   children: [
@@ -137,19 +175,6 @@ class _AppSidebarState extends State<AppSidebar> {
                           if (!isDesktop) Navigator.pop(context);
                           if (widget.currentRoute != '/ping') {
                             context.go('/ping');
-                          }
-                        },
-                      ),
-                    if (FeatureAvailability.canUsePing && RoleHelper.isAdminOrAbove)
-                      SidebarItem(
-                        icon: Icons.table_chart_outlined,
-                        label: 'Rekap STB 24 Jam',
-                        isActive: widget.currentRoute == '/rekap-stb',
-                        isSubMenu: true,
-                        onTap: () {
-                          if (!isDesktop) Navigator.pop(context);
-                          if (widget.currentRoute != '/rekap-stb') {
-                            context.go('/rekap-stb');
                           }
                         },
                       ),

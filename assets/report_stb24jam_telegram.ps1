@@ -483,9 +483,10 @@ try {
                 $destRow++
             }
             
-            # Samakan lebar kolom
+            # Samakan lebar kolom dan status tersembunyi (hidden)
             for ($c = 1; $c -le $trendLastCol; $c++) {
                 $tempTrendSheet.Columns.Item($c).ColumnWidth = $trendSheet.Columns.Item($c).ColumnWidth
+                $tempTrendSheet.Columns.Item($c).EntireColumn.Hidden = $trendSheet.Columns.Item($c).EntireColumn.Hidden
             }
             # Samakan tinggi baris header
             for ($r = 1; $r -le 9; $r++) {

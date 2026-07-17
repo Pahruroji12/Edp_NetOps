@@ -119,4 +119,41 @@ class ToolHelper {
     // Fallback default
     return r'D:\Edp NetOps\worker-ticket-sync';
   }
+
+  /// Menemukan path sla_scraper.exe secara dinamis (prioritas lokal installer -> dev/dist -> legacy path)
+  static Future<String> getSlaScraperPath() async {
+    final appDir = getAppDirectory();
+    if (appDir.isNotEmpty) {
+      // 1. Cek folder installer standar (appDir\tools\sla_scraper.exe)
+      final localToolsPath = File('$appDir\\tools\\sla_scraper.exe');
+      if (await localToolsPath.exists()) {
+        return localToolsPath.path;
+      }
+      // 2. Cek folder lokal tanpa folder tools (appDir\sla_scraper.exe)
+      final localPath = File('$appDir\\sla_scraper.exe');
+      if (await localPath.exists()) {
+        return localPath.path;
+      }
+    }
+
+    // 3. Cek development output path
+    final devDistPath = File(r'D:\DartProject\edp_netops\dist\sla_scraper.exe');
+    if (await devDistPath.exists()) {
+      return devDistPath.path;
+    }
+
+    // 4. Cek default legacy path di D:\
+    final defaultToolsPath = File(r'D:\Edp NetOps\tools\sla_scraper.exe');
+    if (await defaultToolsPath.exists()) {
+      return defaultToolsPath.path;
+    }
+
+    final defaultProdPath = File(r'D:\Edp NetOps\sla_scraper.exe');
+    if (await defaultProdPath.exists()) {
+      return defaultProdPath.path;
+    }
+
+    // Default fallback jika tidak ada yang ditemukan
+    return r'D:\Edp NetOps\tools\sla_scraper.exe';
+  }
 }

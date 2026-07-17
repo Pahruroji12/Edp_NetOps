@@ -18,6 +18,7 @@ class StoreListController extends ChangeNotifier {
   bool isLoading = true;
   String activeFilter = 'Semua';
   String? errorMessage;
+  bool _isDisposed = false;
 
   final searchController = TextEditingController();
 
@@ -162,7 +163,15 @@ class StoreListController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _isDisposed = true;
     searchController.dispose();
     super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
+    }
   }
 }

@@ -810,3 +810,75 @@ class UserManagementSection extends StatelessWidget {
     );
   }
 }
+
+// ══════════════════════════════════════════════════════════════
+// SLA CONFIG SECTION
+// ══════════════════════════════════════════════════════════════
+
+class SlaConfigSection extends StatelessWidget {
+  final SettingsController ctrl;
+
+  const SlaConfigSection({super.key, required this.ctrl});
+
+  @override
+  Widget build(BuildContext context) {
+    const slaColor = Color(0xFFFF9F43); // Orange Accent
+    return SettingsCard(
+      accentLeft: slaColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SettingsCardHeader(
+            title: "Login Dashboard SLA",
+            subtitle: "Pengaturan username dan password untuk modul rekapitulasi data SLA & Dispensasi.",
+            icon: Icons.assignment_ind_outlined,
+            color: slaColor,
+          ),
+          const SizedBox(height: 20),
+
+          SettingsResponsiveRow(
+            threshold: 520,
+            children: [
+              Expanded(
+                child: SettingsSubCard(
+                  title: "SLA SCRAPER CREDENTIALS",
+                  icon: Icons.vpn_key_outlined,
+                  accentColor: slaColor,
+                  child: Column(
+                    children: [
+                      SettingsTextField(
+                        "User Login SLA",
+                        ctrl.slaUserCtrl,
+                        prefixIcon: Icons.person_outline,
+                      ),
+                      const SizedBox(height: 10),
+                      SettingsTextField(
+                        "Password Login SLA",
+                        ctrl.slaPassCtrl,
+                        prefixIcon: Icons.key_outlined,
+                        isPass: true,
+                        isObs: ctrl.obsSla,
+                        onObsToggle: ctrl.toggleObsSla,
+                      ),
+                      const SizedBox(height: 14),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: SettingsSmallButton(
+                          label: "Simpan",
+                          color: slaColor,
+                          icon: Icons.save_outlined,
+                          onPressed: ctrl.saveSla,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

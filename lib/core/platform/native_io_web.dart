@@ -16,6 +16,7 @@ import 'dart:typed_data';
 abstract class FileSystemEntity {
   String get path;
   FileStat statSync() => FileStat();
+  Future<FileStat> stat() async => FileStat();
   Future<FileSystemEntity> delete({bool recursive = false}) async => this;
 }
 
@@ -55,6 +56,7 @@ class Directory extends FileSystemEntity {
   Future<Directory> create({bool recursive = false}) async => this;
   Directory createSync({bool recursive = false}) => this;
   List<FileSystemEntity> listSync({bool recursive = false, bool followLinks = true}) => [];
+  Stream<FileSystemEntity> list({bool recursive = false, bool followLinks = true}) => const Stream.empty();
   Directory get parent => Directory(path);
 }
 
@@ -70,6 +72,11 @@ class Platform {
 }
 
 class Process {
+  Stream<List<int>> get stdout => const Stream.empty();
+  Stream<List<int>> get stderr => const Stream.empty();
+  Future<int> get exitCode => Future.value(0);
+  bool kill([dynamic signal]) => false;
+
   static Future<ProcessResult> run(
     String executable,
     List<String> arguments, {

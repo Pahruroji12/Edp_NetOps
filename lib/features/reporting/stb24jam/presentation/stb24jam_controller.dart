@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/utils/notification_mixin.dart';
 import '../../../../features/settings/data/settings_repository.dart';
+import '../../../../core/utils/role_helper.dart';
 import '../data/stb24jam_service.dart';
 import '../data/stb24jam_repository.dart';
 
@@ -22,6 +25,15 @@ class Stb24JamController extends ChangeNotifier with NotificationMixin {
   // ── Static flags: bertahan meski controller di-dispose/recreate ──
   static bool _isGenerating = false;
   static bool _isReporting = false;
+
+  static bool _autoEnabled = false;
+  static final List<String> _autoLogs = [];
+  static Timer? _schedulerTimer;
+  static Stb24JamController? _activeInstance;
+
+  Stb24JamController() {
+    _activeInstance = this;
+  }
 
   // ── State ───────────────────────────────────────────────────
   DateTime tanggal = DateTime.now();
@@ -274,5 +286,172 @@ class Stb24JamController extends ChangeNotifier with NotificationMixin {
         notifyListeners();
       } catch (_) {}
     }
+  }
+
+  // ── Auto Scheduler ──────────────────────────────────────────
+
+  bool get autoEnabled => _autoEnabled;
+  static List<String> get autoLogs => _autoLogs;
+
+  void toggleAuto(bool value) {
+    if (!RoleHelper.isAdministrator) {
+      notifyError('Akses ditolak: Hanya Administrator yang dapat mengubah pengaturan Auto Generate.');
+      return;
+    }
+    if (_autoEnabled == value) return;
+    _autoEnabled = value;
+    if (_autoEnabled) {
+      _startScheduler();
+    } else {
+      _stopScheduler();
+    }
+    notifyListeners();
+  }
+
+  static void _startScheduler() {
+    _stopScheduler(); // Hentikan yang lama jika ada
+    _addAutoLog('Scheduler diaktifkan.');
+    _scheduleNextRun();
+  }
+
+  static void _stopScheduler() {
+    if (_schedulerTimer != null) {
+      _schedulerTimer!.cancel();
+      _schedulerTimer = null;
+      _addAutoLog('Scheduler dihentikan.');
+    }
+  }
+
+  static void _scheduleNextRun() {
+    final now = DateTime.now();
+    var scheduled = DateTime(now.year, now.month, now.day, 4, 0, 0);
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+    final diff = scheduled.difference(now);
+    
+    _addAutoLog('Jadwal berikutnya: ${DateFormat('dd-MM-yyyy HH:mm:ss').format(scheduled)} (dalam ${diff.inHours} jam ${diff.inMinutes % 60} menit)');
+
+    _schedulerTimer = Timer(diff, () async {
+      await _executeAutoProcess();
+      // Jadwalkan ulang untuk hari berikutnya
+      _scheduleNextRun();
+    });
+  }
+
+  static Future<void> _executeAutoProcess() async {
+    final nowStr = DateFormat('HH:mm:ss').format(DateTime.now());
+    _addAutoLog('[$nowStr] Auto Generate dimulai');
+
+    final service = Stb24JamService();
+    final settingsRepo = SettingsRepository();
+    final historyRepo = Stb24JamRepository();
+    final date = DateTime.now();
+
+    try {
+      // 1. Jalankan Generate Sheet
+      final genResult = await service.generateDailySheet(date);
+      
+      // Simpan history generate
+      try {
+        await historyRepo.insertHistory(
+          actionType: 'generate',
+          tanggal: date,
+          success: genResult.success,
+          totalToko: genResult.totalToko,
+          totalOk: genResult.totalOk,
+          totalNok: genResult.totalNok,
+          message: genResult.message,
+        );
+      } catch (_) {}
+
+      final endGenTimeStr = DateFormat('HH:mm:ss').format(DateTime.now());
+
+      if (genResult.success) {
+        _addAutoLog('[$endGenTimeStr] Generate berhasil');
+
+        // Tunggu jeda singkat sekitar 1–2 menit (misal 90 detik)
+        const delaySeconds = 90;
+        _addAutoLog('Menunggu $delaySeconds detik sebelum Auto Report...');
+        await Future.delayed(const Duration(seconds: delaySeconds));
+
+        final startRepTimeStr = DateFormat('HH:mm:ss').format(DateTime.now());
+        _addAutoLog('[$startRepTimeStr] Auto Report dimulai');
+
+        // Ambil Bot Token & Chat ID dari Supabase settings
+        final settingsResult = await settingsRepo.fetchAppSettings();
+        String botToken = '';
+        String chatId = '';
+
+        settingsResult.fold(
+          (_) {},
+          (data) {
+            botToken = data['telegram_bot_token'] ?? '';
+            chatId = data['telegram_chat_id'] ?? '';
+          },
+        );
+
+        if (botToken.isEmpty || chatId.isEmpty) {
+          _addAutoLog('Auto Report dibatalkan: Bot Token atau Chat ID belum dikonfigurasi.');
+          return;
+        }
+
+        // Jalankan Report
+        final repResult = await service.reportToTelegram(
+          tanggal: date,
+          botToken: botToken,
+          chatId: chatId,
+        );
+
+        // Simpan history report
+        try {
+          await historyRepo.insertHistory(
+            actionType: 'report',
+            tanggal: date,
+            success: repResult.success,
+            totalToko: repResult.totalToko,
+            totalOk: repResult.totalOk,
+            totalNok: repResult.totalNok,
+            message: repResult.message,
+          );
+        } catch (_) {}
+
+        final endRepTimeStr = DateFormat('HH:mm:ss').format(DateTime.now());
+        if (repResult.success) {
+          _addAutoLog('[$endRepTimeStr] Auto Report selesai');
+        } else {
+          _addAutoLog('[$endRepTimeStr] Auto Report gagal: ${repResult.message}');
+        }
+      } else {
+        _addAutoLog('[$endGenTimeStr] Generate gagal: ${genResult.message}');
+        _addAutoLog('[$endGenTimeStr] Auto Report dibatalkan');
+      }
+    } catch (e) {
+      final errTimeStr = DateFormat('HH:mm:ss').format(DateTime.now());
+      _addAutoLog('[$errTimeStr] Terjadi exception: $e');
+      _addAutoLog('[$errTimeStr] Auto Report dibatalkan');
+    }
+  }
+
+  static void _addAutoLog(String log) {
+    _autoLogs.add(log);
+    if (_autoLogs.length > 500) {
+      _autoLogs.removeRange(0, _autoLogs.length - 500);
+    }
+    _activeInstance?._notifySafely();
+  }
+
+  void _notifySafely() {
+    try {
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    if (_activeInstance == this) {
+      _activeInstance = null;
+    }
+    super.dispose();
   }
 }

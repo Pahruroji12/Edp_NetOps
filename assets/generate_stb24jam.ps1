@@ -710,6 +710,34 @@ try {
     # Hitung ulang final setelah pengurutan selesai
     $excel.CalculateFullRebuild()
     
+    # --- AUTOHIDE KOLOM TREND (MAKSIMAL 15 HARI TERAKHIR YANG TAMPIL) ---
+    # Tampilkan seluruh kolom terlebih dahulu agar tidak ada kolom tersembunyi yang terlewat
+    $trend.Columns.Hidden = $false
+    
+    # Cari kembali indeks kolom Total terbaru setelah ada pergeseran
+    $currentTotalColIndex = $null
+    for ($c = 1; $c -le 100; $c++) {
+        $headerVal = $trend.Cells.Item(9, $c).Text
+        if ($headerVal -eq "Total") {
+            $currentTotalColIndex = $c
+            break
+        }
+    }
+    
+    if ($null -ne $currentTotalColIndex -and $currentTotalColIndex -gt 5) {
+        $firstDateCol = 5 # Kolom tanggal dimulai dari Kolom E (indeks 5)
+        $lastDateCol = $currentTotalColIndex - 1
+        $totalDateCols = $lastDateCol - $firstDateCol + 1
+        
+        if ($totalDateCols -gt 15) {
+            $colsToHide = $totalDateCols - 15
+            # Sembunyikan kolom tanggal terlama dari Kolom E sampai Kolom E + colsToHide - 1
+            for ($c = $firstDateCol; $c -lt ($firstDateCol + $colsToHide); $c++) {
+                $trend.Columns.Item($c).EntireColumn.Hidden = $true
+            }
+        }
+    }
+    
     # Hitung ringkasan statistik (OK / NOK) untuk JSON output
     $totalToko = $maxRow - 2
     $totalOk = 0

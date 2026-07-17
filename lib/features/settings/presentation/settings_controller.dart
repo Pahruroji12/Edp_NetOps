@@ -61,6 +61,10 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
   final ftpUserCtrl = TextEditingController();
   final ftpPassCtrl = TextEditingController();
 
+  // SLA Scraper
+  final slaUserCtrl = TextEditingController();
+  final slaPassCtrl = TextEditingController();
+
   // User Management
   final nikUserCtrl = TextEditingController();
   final namaUserCtrl = TextEditingController();
@@ -80,6 +84,7 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
   bool obsFtp = true;
   bool obsManageUserPass = true;
   bool obsTelegramToken = true;
+  bool obsSla = true;
 
   // ── State: User Management ──────────────────────────────────
   String selectedRole = 'user';
@@ -137,6 +142,11 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
     notifyListeners();
   }
 
+  void toggleObsSla() {
+    obsSla = !obsSla;
+    notifyListeners();
+  }
+
   // ── INISIALISASI ────────────────────────────────────────────
 
   void init() {
@@ -176,6 +186,8 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
         ftpPassCtrl.text = data['ftp_pass'] ?? '';
         telegramBotTokenCtrl.text = data['telegram_bot_token'] ?? '';
         telegramChatIdCtrl.text = data['telegram_chat_id'] ?? '';
+        slaUserCtrl.text = data['sla_username'] ?? '';
+        slaPassCtrl.text = data['sla_password'] ?? '';
         notifyListeners();
       },
     );
@@ -255,6 +267,11 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
     {'key': 'telegram_bot_token', 'value': telegramBotTokenCtrl.text},
     {'key': 'telegram_chat_id', 'value': telegramChatIdCtrl.text},
   ], 'Konfigurasi Telegram Bot Disimpan!');
+
+  void saveSla() => savePartialSettings([
+    {'key': 'sla_username', 'value': slaUserCtrl.text},
+    {'key': 'sla_password', 'value': slaPassCtrl.text},
+  ], 'Kredensial Login SLA Disimpan!');
 
   // ── USER MANAGEMENT ─────────────────────────────────────────
 

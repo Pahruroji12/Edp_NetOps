@@ -10,6 +10,7 @@ import '../data/stb24jam_service.dart';
 import '../data/stb24jam_repository.dart';
 import '../../../ticket/presentation/widgets/custom_calendar_popup.dart';
 import '../../../auth/domain/auth_state.dart';
+import '../../../../core/utils/role_helper.dart';
 
 class Stb24JamPage extends StatefulWidget {
   const Stb24JamPage({super.key});
@@ -111,6 +112,16 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
     final pingPaths = controller.pingPaths;
     final hasMissingPingFiles = controller.hasMissingPingFiles;
 
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selectedDate = DateTime(
+      controller.tanggal.year,
+      controller.tanggal.month,
+      controller.tanggal.day,
+    );
+    final isPastDate = selectedDate.isBefore(today);
+    final isFutureDate = selectedDate.isAfter(today);
+
     return Scaffold(
       backgroundColor: context.surfaceColor,
       body: PageEntryTransition(
@@ -201,6 +212,28 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                                   ),
                                 ),
                               ),
+                              const SizedBox(width: 8),
+                              Tooltip(
+                                message: 'Refresh Berkas',
+                                child: OutlinedButton(
+                                  onPressed: () => controller.refreshFilePaths(),
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(color: context.borderColor),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.refresh_rounded,
+                                    color: context.accentColor,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                           Padding(
@@ -209,35 +242,168 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                               color: context.borderColor.withOpacity(0.6),
                             ),
                           ),
-                          // Daftar Berkas
-                          _buildFileRow(
-                            icon: Icons.table_chart_rounded,
-                            iconColor: context.secondaryAccent,
-                            label: 'Laporan Bulanan',
-                            path: monthlyPath,
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            child: Divider(
-                              color: context.borderColor.withOpacity(0.3),
+                          // Daftar Berkas & Auto Scheduler Split Row
+                          IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Left Column: Berkas List
+                                Expanded(
+                                  flex: 3,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildFileRow(
+                                        icon: Icons.table_chart_rounded,
+                                        iconColor: context.secondaryAccent,
+                                        label: 'Laporan Bulanan',
+                                        path: monthlyPath,
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                        child: Divider(
+                                          color: context.borderColor.withOpacity(0.3),
+                                        ),
+                                      ),
+                                      ...pingPaths.entries.map((e) {
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 10.0),
+                                          child: _buildFileRow(
+                                            icon: Icons.network_check_rounded,
+                                            iconColor: context.accentColor,
+                                            label: e.key,
+                                            path: e.value,
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                  ),
+                                ),
+                                // Right Column: Auto Scheduler (Hanya untuk Administrator)
+                                if (RoleHelper.isAdministrator) ...[
+                                  const SizedBox(width: 20),
+                                  Container(
+                                    width: 1,
+                                    color: context.borderColor.withOpacity(0.4),
+                                  ),
+                                  const SizedBox(width: 20),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: context.primaryColor.withOpacity(0.4),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: context.accentColor.withOpacity(0.15),
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.auto_awesome_rounded,
+                                                color: context.accentColor,
+                                                size: 16,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                "Auto Process",
+                                                style: TextStyle(
+                                                  color: context.textPrimary,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                              const Spacer(),
+                                              Switch.adaptive(
+                                                value: controller.autoEnabled,
+                                                activeColor: context.accentColor,
+                                                onChanged: (val) {
+                                                  controller.toggleAuto(val);
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            "Auto Generate & Report",
+                                            style: TextStyle(
+                                              color: context.textPrimary.withOpacity(0.9),
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Expanded(
+                                            child: Text(
+                                              "Mengeksekusi rekap harian jam 04.00 pagi secara otomatis, lalu melaporkan ke Telegram setelah berhasil.",
+                                              style: TextStyle(
+                                                color: context.textSecondary,
+                                                fontSize: 9.5,
+                                                height: 1.3,
+                                              ),
+                                              overflow: TextOverflow.clip,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          // Status badge
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: (controller.autoEnabled
+                                                      ? context.successColor
+                                                      : context.textSecondary)
+                                                  .withOpacity(0.12),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(
+                                                color: (controller.autoEnabled
+                                                        ? context.successColor
+                                                        : context.textSecondary)
+                                                    .withOpacity(0.2),
+                                              ),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Container(
+                                                  width: 5,
+                                                  height: 5,
+                                                  decoration: BoxDecoration(
+                                                    color: controller.autoEnabled
+                                                        ? context.successColor
+                                                        : context.textSecondary,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 5),
+                                                Text(
+                                                  controller.autoEnabled ? 'Scheduler Aktif' : 'Nonaktif',
+                                                  style: TextStyle(
+                                                    color: controller.autoEnabled
+                                                        ? context.successColor
+                                                        : context.textSecondary,
+                                                    fontSize: 9,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                          ...pingPaths.entries.map((e) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10.0),
-                              child: _buildFileRow(
-                                icon: Icons.network_check_rounded,
-                                iconColor: context.accentColor,
-                                label: e.key,
-                                path: e.value,
-                              ),
-                            );
-                          }),
                         ],
                       ),
                     ),
                     const SizedBox(height: 24),
-
                     // ── Tombol Aksi ──
                     Row(
                       children: [
@@ -247,7 +413,9 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                             onPressed:
                                 (controller.loading ||
                                     controller.reporting ||
-                                    hasMissingPingFiles)
+                                    hasMissingPingFiles ||
+                                    isPastDate ||
+                                    isFutureDate)
                                 ? null
                                 : () => _generate(controller),
                             icon: controller.loading
@@ -293,7 +461,9 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                             onPressed:
                                 (controller.loading ||
                                     controller.reporting ||
-                                    hasMissingPingFiles)
+                                    hasMissingPingFiles ||
+                                    isPastDate ||
+                                    isFutureDate)
                                 ? null
                                 : () => _report(controller),
                             icon: controller.reporting
@@ -337,38 +507,26 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                         ),
                       ],
                     ),
-                    if (hasMissingPingFiles) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: context.dangerColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: context.dangerColor.withOpacity(0.2),
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.error_outline_rounded,
-                              color: context.dangerColor,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Harap lengkapi seluruh file hasil ping di folder sebelum memulai proses generate.',
-                                style: TextStyle(
-                                  color: context.dangerColor,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                    if (isPastDate) ...[
+                      const SizedBox(height: 16),
+                      _buildAlertBanner(
+                        message: 'Generate untuk tanggal ${controller.tanggal.day.toString().padLeft(2, '0')}/${controller.tanggal.month.toString().padLeft(2, '0')}/${controller.tanggal.year} sudah selesai & tidak diperkenankan generate ulang untuk tanggal lampau.',
+                        color: context.successColor,
+                        icon: Icons.check_circle_outline_rounded,
+                      ),
+                    ] else if (isFutureDate) ...[
+                      const SizedBox(height: 16),
+                      _buildAlertBanner(
+                        message: 'Berkas hasil ping untuk tanggal ${controller.tanggal.day.toString().padLeft(2, '0')}/${controller.tanggal.month.toString().padLeft(2, '0')}/${controller.tanggal.year} belum tersedia. Penggenerate-an belum dapat dilakukan.',
+                        color: context.dangerColor,
+                        icon: Icons.error_outline_rounded,
+                      ),
+                    ] else if (hasMissingPingFiles) ...[
+                      const SizedBox(height: 16),
+                      _buildAlertBanner(
+                        message: 'Berkas hasil ping untuk hari ini belum lengkap. Pastikan 4 file ping harian telah tersedia di folder Hasil Ping.',
+                        color: context.warningColor,
+                        icon: Icons.warning_amber_rounded,
                       ),
                     ],
                     const SizedBox(height: 24),
@@ -840,6 +998,38 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
               tooltip: 'Hapus Riwayat',
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlertBanner({
+    required String message,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );
