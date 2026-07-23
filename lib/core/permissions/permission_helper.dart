@@ -12,6 +12,7 @@ enum AppPermission {
   useFtp,
   useWdcpScan,
   useMikrotikControl,
+  useAlarmTest,
 
   // ── Ticket Management ──────────────────────────────────────────
   viewTickets,       // semua role bisa lihat
@@ -88,6 +89,7 @@ class PermissionHelper {
       case AppPermission.useFtp:
       case AppPermission.useWdcpScan:
       case AppPermission.useMikrotikControl:
+      case AppPermission.useAlarmTest:
         return isAdminLevel;
 
       // ── Tickets ─────────────────────────────────────────────────

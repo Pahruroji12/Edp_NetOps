@@ -163,6 +163,7 @@ class _AppSidebarState extends State<AppSidebar> {
                   isExpanded: [
                     '/ping',
                     '/scan-wdcp',
+                    '/alarm-test',
                   ].contains(widget.currentRoute),
                   children: [
                     if (FeatureAvailability.canUsePing)
@@ -188,6 +189,19 @@ class _AppSidebarState extends State<AppSidebar> {
                           if (!isDesktop) Navigator.pop(context);
                           if (widget.currentRoute != '/scan-wdcp') {
                             context.go('/scan-wdcp');
+                          }
+                        },
+                      ),
+                    if (FeatureAvailability.canUseAlarmTest)
+                      SidebarItem(
+                        icon: Icons.ring_volume_outlined,
+                        label: 'Test Dial Alarm',
+                        isActive: widget.currentRoute == '/alarm-test',
+                        isSubMenu: true,
+                        onTap: () {
+                          if (!isDesktop) Navigator.pop(context);
+                          if (widget.currentRoute != '/alarm-test') {
+                            context.go('/alarm-test');
                           }
                         },
                       ),
@@ -274,7 +288,10 @@ class _AppSidebarState extends State<AppSidebar> {
           color: context.surfaceColor,
           border: Border(right: BorderSide(color: context.borderColor)),
         ),
-        child: menuContent,
+        child: Material(
+          color: Colors.transparent,
+          child: menuContent,
+        ),
       );
     } else {
       return MobileNavigationDrawer(child: menuContent);

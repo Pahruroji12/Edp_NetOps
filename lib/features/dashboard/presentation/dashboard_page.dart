@@ -6,7 +6,6 @@ import '../../../core/utils/responsive_helper.dart';
 import '../../../core/widgets/custom_snackbar.dart';
 import '../../auth/domain/auth_state.dart';
 import 'dashboard_controller.dart';
-import '../../ticket/presentation/controllers/worker_controller.dart';
 import 'widgets/welcome_section.dart';
 import 'widgets/stats_grid.dart';
 import 'widgets/ticket_chart_section.dart';
@@ -47,7 +46,6 @@ class _DashboardPageState extends State<DashboardPage> {
       if (AuthState.instance.showWelcomeOnDashboard) {
         AuthState.instance.showWelcomeOnDashboard = false;
         CustomSnackBar.success("Selamat datang, ${AuthState.instance.name}!");
-        WorkerController.autoStartWorkerIfNeeded();
       }
 
       Future.delayed(const Duration(milliseconds: 80), () {

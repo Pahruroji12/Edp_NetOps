@@ -21,28 +21,28 @@ function Get-ColumnLetter($colIndex) {
     return $letter
 }
 
-# Helper function untuk menutup file Excel yang sedang terbuka
+# Helper function untuk menutup file Excel yang sedang terbuka di instance Excel mana pun
 function Close-ExcelFile {
     param([string]$FilePath)
     
     try {
         $excelProc = Get-Process -Name "EXCEL" -ErrorAction SilentlyContinue
         if ($excelProc) {
-            $tempExcel = New-Object -ComObject Excel.Application -ErrorAction SilentlyContinue
-            if ($tempExcel) {
-                $tempExcel.DisplayAlerts = $false
-                foreach ($wb in $tempExcel.Workbooks) {
-                    if ($wb.FullName -eq $FilePath) {
+            # Sambungkan ke instance Excel yang sedang aktif/berjalan di Windows
+            $runningExcel = [System.Runtime.InteropServices.Marshal]::GetActiveObject("Excel.Application")
+            if ($runningExcel) {
+                $runningExcel.DisplayAlerts = $false
+                foreach ($wb in $runningExcel.Workbooks) {
+                    if ($wb.FullName -eq $FilePath -or $wb.Name -eq (Split-Path $FilePath -Leaf)) {
                         $wb.Close($false)
                         break
                     }
                 }
-                $tempExcel.Quit()
-                [System.Runtime.Interopservices.Marshal]::ReleaseComObject($tempExcel) | Out-Null
+                [System.Runtime.InteropServices.Marshal]::ReleaseComObject($runningExcel) | Out-Null
             }
         }
     } catch {
-        # Silent fail - tidak masalah jika gagal menutup
+        # Silent fail - jika tidak ada instance aktif atau gagal mengakses
     }
 }
 

@@ -1,6 +1,10 @@
 /**
  * Extract store codes from email subject or body content.
- * Matches code format like T567 (letter + 3 digits) or TGPJ (4 letters).
+ * Matches various code formats:
+ *   - T567  (1 letter + 3 digits)
+ *   - TGPJ  (4 letters)
+ *   - FRS9  (mixed: 2-3 letters + 1-2 digits, total 4 chars)
+ *   - T1LX  (mixed: letter-digit-letter-letter)
  */
 export declare function extractStoreCodes(text: string): string[];
 /**

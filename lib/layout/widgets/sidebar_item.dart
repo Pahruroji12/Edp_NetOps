@@ -33,37 +33,42 @@ class SidebarItem extends StatelessWidget {
       ),
       decoration: isActive
           ? BoxDecoration(
-              color: context.accentColor.withOpacity(0.08),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: context.accentColor.withOpacity(0.2)),
             )
           : BoxDecoration(borderRadius: BorderRadius.circular(10)),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 12 * context.scaleFactor,
-          vertical: 0,
-        ),
-        dense: context.isCompact,
-        visualDensity: context.isCompact ? VisualDensity.compact : VisualDensity.standard,
-        leading: Icon(
-          icon,
-          color: isActive
-              ? context.accentColor
-              : (iconColor ?? context.textSecondary),
-          size: isSubMenu ? 18 : 20,
-        ),
-        title: Text(
-          label,
-          style: TextStyle(
+      child: Material(
+        color: Colors.transparent,
+        clipBehavior: Clip.antiAlias,
+        borderRadius: BorderRadius.circular(10),
+        child: ListTile(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          tileColor: isActive ? context.accentColor.withOpacity(0.08) : null,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 12 * context.scaleFactor,
+            vertical: 0,
+          ),
+          dense: context.isCompact,
+          visualDensity: context.isCompact ? VisualDensity.compact : VisualDensity.standard,
+          leading: Icon(
+            icon,
             color: isActive
                 ? context.accentColor
-                : (labelColor ?? context.textPrimary),
-            fontSize: 13,
-            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                : (iconColor ?? context.textSecondary),
+            size: isSubMenu ? 18 : 20,
           ),
+          title: Text(
+            label,
+            style: TextStyle(
+              color: isActive
+                  ? context.accentColor
+                  : (labelColor ?? context.textPrimary),
+              fontSize: 13,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+          onTap: onTap,
         ),
-        onTap: onTap,
       ),
     );
   }

@@ -1,6 +1,8 @@
 export declare const CONFIG: {
     supabaseUrl: string;
-    supabaseServiceRoleKey: string;
+    supabaseAnonKey: string;
+    supabaseUserEmail: string;
+    supabaseUserPassword: string;
     port: number;
     syncIntervalMinutes: number;
     workingHourStart: number;

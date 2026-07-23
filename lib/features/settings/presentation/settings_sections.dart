@@ -174,7 +174,7 @@ class RouterConfigSection extends StatelessWidget {
 
   Widget _buildVncSubCard(BuildContext context) {
     return SettingsSubCard(
-      title: "PASSWORD VNC TOKO",
+      title: "PASSWORD VNC SISTEM",
       icon: Icons.desktop_windows_outlined,
       accentColor: const Color(0xFF6C63FF),
       child: Column(
@@ -190,13 +190,13 @@ class RouterConfigSection extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           SettingsTextField(
-            "Password VNC Office",
-            ctrl.vncOfficeCtrl,
-            prefixIcon: Icons.monitor_outlined,
+            "Password VNC Alarm",
+            ctrl.vncAlarmCtrl,
+            prefixIcon: Icons.security_outlined,
             isPass: true,
-            isObs: ctrl.obsVncOffice,
-            onObsToggle: ctrl.toggleObsVncOffice,
-            helperText: "Password VNC untuk akses perangkat kantor",
+            isObs: ctrl.obsVncAlarm,
+            onObsToggle: ctrl.toggleObsVncAlarm,
+            helperText: "Password VNC untuk server database alarm",
           ),
           const SizedBox(height: 14),
           Align(
@@ -875,6 +875,200 @@ class SlaConfigSection extends StatelessWidget {
                 ),
               ),
               const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// WORKER CONFIG SECTION
+// ══════════════════════════════════════════════════════════════
+
+class WorkerConfigSection extends StatelessWidget {
+  final SettingsController ctrl;
+
+  const WorkerConfigSection({super.key, required this.ctrl});
+
+  @override
+  Widget build(BuildContext context) {
+    const workerColor = Color(0xFF26A69A); // Teal
+    return SettingsCard(
+      accentLeft: workerColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SettingsCardHeader(
+            title: "Konfigurasi Worker",
+            subtitle: "URL endpoint Background Worker untuk sinkronisasi tiket otomatis dari email.",
+            icon: Icons.dns_rounded,
+            color: workerColor,
+          ),
+          const SizedBox(height: 20),
+
+          SettingsResponsiveRow(
+            threshold: 520,
+            children: [
+              Expanded(
+                child: SettingsSubCard(
+                  title: "WORKER API ENDPOINT",
+                  icon: Icons.link_rounded,
+                  accentColor: workerColor,
+                  child: Column(
+                    children: [
+                      SettingsTextField(
+                        "Worker API URL",
+                        ctrl.workerApiUrlCtrl,
+                        prefixIcon: Icons.http_rounded,
+                        helperText: "Isi IP komputer server. Contoh: http://192.168.1.100:8080",
+                      ),
+                      const SizedBox(height: 14),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: SettingsSmallButton(
+                          label: "Simpan",
+                          color: workerColor,
+                          icon: Icons.save_outlined,
+                          onPressed: ctrl.saveWorkerUrl,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Expanded(child: SizedBox.shrink()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AlarmDbConfigSection extends StatelessWidget {
+  final SettingsController ctrl;
+
+  const AlarmDbConfigSection({super.key, required this.ctrl});
+
+  @override
+  Widget build(BuildContext context) {
+    const dbColor = Color(0xFF00C9A7);
+
+    return SettingsCard(
+      accentLeft: dbColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SettingsCardHeader(
+            title: "Konfigurasi Database Server Alarm",
+            subtitle: "Atur alamat host database MySQL, port, kredensial, dan nama database untuk pengujian alarm.",
+            icon: Icons.storage_outlined,
+            color: dbColor,
+          ),
+          const SizedBox(height: 20),
+
+          if (ctrl.dbServers.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20.0),
+              child: Center(
+                child: Text(
+                  "Memuat konfigurasi server...",
+                  style: TextStyle(color: context.textSecondary, fontSize: 12),
+                ),
+              ),
+            )
+          else ...[
+            for (int i = 0; i < ctrl.dbServers.length; i++) ...[
+              _buildServerConfigRow(context, i),
+              if (i < ctrl.dbServers.length - 1)
+                const SizedBox(height: 16),
+            ],
+            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.centerRight,
+              child: SettingsPrimaryButton(
+                label: "Simpan Semua Database Server",
+                icon: Icons.save_outlined,
+                onPressed: ctrl.saveDbServers,
+                color: dbColor,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServerConfigRow(BuildContext context, int index) {
+    final serverName = ctrl.dbServers[index]['server_label'] ?? 'Server';
+    const accent = Color(0xFF6C63FF);
+
+    return SettingsSubCard(
+      title: "SERVER CONFIG: $serverName",
+      icon: Icons.dns_outlined,
+      accentColor: accent,
+      child: Column(
+        children: [
+          SettingsResponsiveRow(
+            threshold: 520,
+            children: [
+              Expanded(
+                child: SettingsTextField(
+                  "Label Server",
+                  ctrl.dbLabelCtrls[index],
+                  prefixIcon: Icons.label_outline,
+                ),
+              ),
+              Expanded(
+                child: SettingsTextField(
+                  "Host IP Address",
+                  ctrl.dbHostCtrls[index],
+                  prefixIcon: Icons.settings_ethernet_outlined,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SettingsResponsiveRow(
+            threshold: 520,
+            children: [
+              Expanded(
+                child: SettingsTextField(
+                  "Port",
+                  ctrl.dbPortCtrls[index],
+                  prefixIcon: Icons.numbers,
+                  isNum: true,
+                ),
+              ),
+              Expanded(
+                child: SettingsTextField(
+                  "Database Name",
+                  ctrl.dbNameCtrls[index],
+                  prefixIcon: Icons.folder_open_outlined,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SettingsResponsiveRow(
+            threshold: 520,
+            children: [
+              Expanded(
+                child: SettingsTextField(
+                  "Username",
+                  ctrl.dbUserCtrls[index],
+                  prefixIcon: Icons.person_outline,
+                ),
+              ),
+              Expanded(
+                child: SettingsTextField(
+                  "Password Database",
+                  ctrl.dbPassCtrls[index],
+                  prefixIcon: Icons.key_outlined,
+                ),
+              ),
             ],
           ),
         ],

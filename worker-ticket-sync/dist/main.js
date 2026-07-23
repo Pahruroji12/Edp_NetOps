@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const config_1 = require("./config");
 const server_1 = require("./server");
 const syncTicketEmail_1 = require("./syncTicketEmail");
+const supabaseClient_1 = require("./supabaseClient");
 const workerStatusService_1 = require("./workerStatusService");
 /**
  * Cek apakah waktu sekarang berada dalam jam operasional.
@@ -80,19 +81,21 @@ async function main() {
     console.log(`Sync Interval: every ${config_1.CONFIG.syncIntervalMinutes} minutes`);
     console.log(`Jam Operasional: ${formatWorkingHours()}`);
     console.log("=========================================");
-    // 1. Set initial state to idle in database
+    // 1. Login ke Supabase sebagai user (menghormati RLS)
+    await (0, supabaseClient_1.initAuth)();
+    // 2. Set initial state to idle in database
     try {
         await workerStatusService_1.WorkerStatusService.setIdle();
     }
     catch (e) {
         console.error("Failed to connect to Supabase or set worker status to idle. Continuing...", e);
     }
-    // 2. Start HTTP Server for UI interaction (Port: 8080)
+    // 3. Start HTTP Server for UI interaction (Port: 8080)
     (0, server_1.startHttpServer)();
-    // 3. Run first sync immediately on boot (if within working hours)
+    // 4. Run first sync immediately on boot (if within working hours)
     console.log("[Scheduler] Booting up: Running initial synchronization...");
     await runIntervalSync();
-    // 4. Start periodic scheduler loop
+    // 5. Start periodic scheduler loop
     const intervalMs = config_1.CONFIG.syncIntervalMinutes * 60 * 1000;
     setInterval(async () => {
         await runIntervalSync();

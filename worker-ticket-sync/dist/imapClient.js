@@ -18,7 +18,11 @@ async function fetchRecentEmails(config, daysToScan = 3, skipMessageIds = new Se
     const client = new imapflow_1.ImapFlow({
         host: config.host,
         port: config.port,
-        secure: config.secure,
+        // Proteksi: Hanya port 993 yang menggunakan SSL/TLS implisit dari awal.
+        // Jika port adalah 143 (atau non-993), paksa secure: false agar imapflow menggunakan 
+        // koneksi plaintext dahulu lalu melakukan STARTTLS secara otomatis/oportunistik.
+        // Ini mencegah error "tls_validate_record_header: wrong version number".
+        secure: config.port === 993 ? true : false,
         auth: {
             user: config.user,
             pass: config.pass,
@@ -41,11 +45,11 @@ async function fetchRecentEmails(config, daysToScan = 3, skipMessageIds = new Se
         const dateThreshold = new Date();
         dateThreshold.setDate(dateThreshold.getDate() - daysToScan);
         console.log(`[IMAP] Connected. Scanning INBOX for emails since ${dateThreshold.toLocaleDateString()}...`);
-        // ─── OPTIMASI: Fetch hanya envelope + text part (BUKAN full source) ───
-        // envelope = subject, messageId, date, from, to (~0.5 KB per email)
-        // bodyParts['1'] = text/plain content saja (~1-5 KB per email)
-        // vs source: true = seluruh email termasuk HTML + attachment (~50-200 KB per email)
-        const messages = client.fetch({ since: dateThreshold }, { envelope: true, uid: true, bodyParts: ["1"] });
+        // ─── Fetch envelope + beberapa text part ───
+        // Email yang sudah di-reply berkali-kali (seperti ICON) bisa punya
+        // struktur MIME berbeda: text/plain bisa di part "1", "1.1", "1.2", atau "2"
+        // Kita fetch semua kemungkinan part dan gabungkan
+        const messages = client.fetch({ since: dateThreshold }, { envelope: true, uid: true, bodyParts: ["1", "1.1", "1.2", "2"] });
         for await (const msg of messages) {
             try {
                 // Extract messageId from envelope
@@ -60,12 +64,13 @@ async function fetchRecentEmails(config, daysToScan = 3, skipMessageIds = new Se
                 const date = msg.envelope?.date
                     ? new Date(msg.envelope.date)
                     : new Date();
-                // Extract text body from bodyParts (lightweight, text/plain only)
+                // Gabungkan semua body parts yang tersedia
                 let bodyText = "";
                 if (msg.bodyParts) {
-                    const textPart = msg.bodyParts.get("1");
-                    if (textPart) {
-                        bodyText = textPart.toString("utf-8");
+                    for (const [, partBuffer] of msg.bodyParts) {
+                        if (partBuffer) {
+                            bodyText += partBuffer.toString("utf-8") + "\n";
+                        }
                     }
                 }
                 parsedMessages.push({

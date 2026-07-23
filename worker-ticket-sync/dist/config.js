@@ -41,7 +41,10 @@ dotenv.config();
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 exports.CONFIG = {
     supabaseUrl: process.env.SUPABASE_URL || "",
-    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
+    // ─── Auth: Login sebagai user biasa (menghormati RLS) ───
+    supabaseUserEmail: process.env.SUPABASE_USER_EMAIL || "",
+    supabaseUserPassword: process.env.SUPABASE_USER_PASSWORD || "",
     port: parseInt(process.env.PORT || "8080", 10),
     syncIntervalMinutes: parseInt(process.env.SYNC_INTERVAL_MINUTES || "10", 10),
     // ─── Jam Operasional (default: 06:00 - 22:30) ───
@@ -58,8 +61,12 @@ exports.CONFIG = {
     imapSecure: process.env.IMAP_SECURE === "true",
 };
 // Validate critical parameters
-if (!exports.CONFIG.supabaseUrl || !exports.CONFIG.supabaseServiceRoleKey) {
-    console.warn("WARNING: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are not set in environment variables! " +
+if (!exports.CONFIG.supabaseUrl || !exports.CONFIG.supabaseAnonKey) {
+    console.warn("WARNING: SUPABASE_URL and SUPABASE_ANON_KEY are not set in environment variables! " +
         "Supabase integration will fail.");
+}
+if (!exports.CONFIG.supabaseUserEmail || !exports.CONFIG.supabaseUserPassword) {
+    console.warn("WARNING: SUPABASE_USER_EMAIL and SUPABASE_USER_PASSWORD are not set! " +
+        "Worker cannot authenticate with Supabase.");
 }
 //# sourceMappingURL=config.js.map

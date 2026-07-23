@@ -27,6 +27,7 @@ class AuthGuard {
     '/ping': AppPermission.usePingScanner,
     '/rekap-stb': AppPermission.usePingScanner,
     '/scan-wdcp': AppPermission.useWdcpScan,
+    '/alarm-test': AppPermission.useAlarmTest,
     '/settings': AppPermission.accessSettings,
     '/admin': AppPermission.accessAdminPanel,
   };
@@ -36,6 +37,7 @@ class AuthGuard {
     '/ping': () => FeatureAvailability.canUsePing,
     '/rekap-stb': () => FeatureAvailability.canUsePing,
     '/scan-wdcp': () => FeatureAvailability.canUseWdcpScan,
+    '/alarm-test': () => FeatureAvailability.canUseAlarmTest,
   };
 
   /// Cek apakah route [path] boleh diakses.
@@ -63,7 +65,9 @@ class AuthGuard {
     if (platformCheck != null && !platformCheck()) {
       final featureName = path == '/ping'
           ? 'Ping Scanner'
-          : (path == '/rekap-stb' ? 'Rekap STB 24 Jam' : 'Scan RbWDCP');
+          : (path == '/rekap-stb'
+              ? 'Rekap STB 24 Jam'
+              : (path == '/alarm-test' ? 'Test Alarm Dial' : 'Scan RbWDCP'));
       return '/unsupported-feature?feature=$featureName';
     }
 

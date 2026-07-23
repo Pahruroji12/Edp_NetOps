@@ -360,7 +360,7 @@ class _LoginMobilePanelState extends State<LoginMobilePanel> {
           const SizedBox(height: 20),
           Center(
             child: Text(
-              'EDP NetOps v3.0.0  ·  Developed by Pahruroji',
+              'EDP NetOps v3.1.0  ·  Developed by Pahruroji',
               style: TextStyle(
                 color: context.textSecondary.withOpacity(0.45),
                 fontSize: 10,

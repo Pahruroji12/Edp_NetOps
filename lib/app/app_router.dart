@@ -12,6 +12,7 @@ import '../features/network_tools/ping/presentation/ping_page_loader.dart';
 import '../features/reporting/stb24jam/presentation/stb24jam_page_loader.dart';
 import '../features/reporting/sla_scraper/presentation/sla_scraper_page_loader.dart';
 import '../features/network_tools/wdcp/presentation/scan_wdcp_page_loader.dart';
+import '../features/network_tools/alarm_test/presentation/alarm_test_page_loader.dart';
 import '../features/profile/presentation/profile_page.dart';
 import '../features/profile/presentation/admin_panel_page.dart';
 import '../features/settings/presentation/settings_page.dart';
@@ -80,6 +81,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/scan-wdcp',
           builder: (context, state) => const ScanWdcpPage(),
+        ),
+        GoRoute(
+          path: '/alarm-test',
+          builder: (context, state) => const AlarmTestPage(),
         ),
         GoRoute(
           path: '/profile',

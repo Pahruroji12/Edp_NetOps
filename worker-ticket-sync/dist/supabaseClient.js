@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.supabase = void 0;
+exports.initAuth = initAuth;
 exports.getActiveTickets = getActiveTickets;
 exports.updateTicket = updateTicket;
 exports.getProcessedEmailIds = getProcessedEmailIds;
@@ -8,12 +9,28 @@ exports.markEmailAsProcessed = markEmailAsProcessed;
 exports.getImapConfigFromDb = getImapConfigFromDb;
 const supabase_js_1 = require("@supabase/supabase-js");
 const config_1 = require("./config");
-exports.supabase = (0, supabase_js_1.createClient)(config_1.CONFIG.supabaseUrl, config_1.CONFIG.supabaseServiceRoleKey, {
+// ── Supabase Client (menggunakan anon key, bukan service role key) ──
+// Auth dilakukan via signInWithPassword di initAuth()
+exports.supabase = (0, supabase_js_1.createClient)(config_1.CONFIG.supabaseUrl, config_1.CONFIG.supabaseAnonKey, {
     auth: {
         persistSession: false,
-        autoRefreshToken: false,
+        autoRefreshToken: true,
     },
 });
+/**
+ * Login ke Supabase sebagai user biasa.
+ * Dipanggil 1x saat worker boot. SDK akan auto-refresh token.
+ */
+async function initAuth() {
+    const { data, error } = await exports.supabase.auth.signInWithPassword({
+        email: config_1.CONFIG.supabaseUserEmail,
+        password: config_1.CONFIG.supabaseUserPassword,
+    });
+    if (error) {
+        throw new Error(`[Auth] Login gagal: ${error.message}`);
+    }
+    console.log(`[Auth] Berhasil login sebagai ${data.user?.email}`);
+}
 /**
  * Fetch all tickets that don't have a ticket number yet.
  */

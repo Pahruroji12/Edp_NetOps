@@ -1,10 +1,11 @@
 ; ═══════════════════════════════════════════════════════════════════
-;  EDP NetOps — Inno Setup Installer Script (Opsi A: Unified)
+;  EDP NetOps — Inno Setup Installer Script
 ; ═══════════════════════════════════════════════════════════════════
 ;
 ;  Satu installer tunggal dengan pilihan komponen:
 ;    - Client (Standar)  : Aplikasi utama + Tools (Winbox, VNC)
-;    - Host (Utama)      : Semua di atas + Background Worker Node.js
+;
+;  NOTE: Worker sudah dipisahkan ke server terpisah (tidak lagi di-bundle).
 ;
 ;  Cara Compile:
 ;    1. Install Inno Setup dari https://jrsoftware.org/isdl.php
@@ -18,13 +19,13 @@
 ; ═══════════════════════════════════════════════════════════════════
 
 #define MyAppName "EDP NetOps"
-#define MyAppVersion "3.0.0"
-#define MyAppPublisher "Pahruroji"
+#define MyAppVersion "3.1.0"
+#define MyAppPublisher "NetOps Dev"
 #define MyAppExeName "edp_netops.exe"
 
 ; Path ke hasil build Flutter (sesuaikan jika berbeda)
 #define FlutterBuildDir "D:\DartProject\edp_netops\build\windows\x64\runner\Release"
-#define WorkerDir "D:\DartProject\edp_netops\worker-ticket-sync"
+; Worker sudah dipisahkan ke server — tidak lagi di-bundle dalam installer
 #define ToolsDir "D:\Edp NetOps"
 #define AssetsDir "D:\DartProject\edp_netops\assets"
 
@@ -55,16 +56,13 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Types]
 Name: "client"; Description: "Instalasi Client — Standar"
-Name: "host"; Description: "Instalasi Host — Lengkap"
 Name: "custom"; Description: "Kustom"; Flags: iscustom
 
 [Components]
 ; Aplikasi utama (wajib, tidak bisa di-uncheck)
-Name: "app"; Description: "Aplikasi Utama EDP NetOps"; Types: client host custom; Flags: fixed
+Name: "app"; Description: "Aplikasi Utama EDP NetOps"; Types: client custom; Flags: fixed
 ; Tools pendukung (Winbox & VNC Viewer)
-Name: "tools"; Description: "Tools Pendukung (Winbox, VNC Viewer)"; Types: client host custom
-; Background Worker 
-Name: "worker"; Description: "Background Ticket Sync Worker"; Types: host
+Name: "tools"; Description: "Tools Pendukung (Winbox, VNC Viewer)"; Types: client custom
 
 ; ═══════════════════════════════════════════════════════════════════
 ;  DAFTAR FILE YANG DISALIN
@@ -88,12 +86,8 @@ Source: "D:\DartProject\edp_netops\.env"; DestDir: "{userdocs}\Edp NetOps"; Comp
 Source: "{#ToolsDir}\winbox.exe"; DestDir: "{app}\tools"; Components: tools; Flags: ignoreversion
 Source: "{#ToolsDir}\vncviewer.exe"; DestDir: "{app}\tools"; Components: tools; Flags: ignoreversion
 
-; ── Background Worker Node.js (Khusus Komputer Host) ────────────
-Source: "{#WorkerDir}\dist\*"; DestDir: "{app}\worker\dist"; Components: worker; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#WorkerDir}\node_modules\*"; DestDir: "{app}\worker\node_modules"; Components: worker; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#WorkerDir}\package.json"; DestDir: "{app}\worker"; Components: worker; Flags: ignoreversion
-Source: "{#WorkerDir}\start_hidden.vbs"; DestDir: "{app}\worker"; Components: worker; Flags: ignoreversion
-Source: "{#WorkerDir}\.env"; DestDir: "{app}\worker"; Components: worker; Flags: ignoreversion onlyifdoesntexist
+; ── Worker sudah TIDAK di-bundle ────────────────────────────────
+; Worker di-deploy terpisah ke komputer server via Task Scheduler.
 
 ; ═══════════════════════════════════════════════════════════════════
 ;  SHORTCUT DI START MENU & DESKTOP
@@ -126,8 +120,11 @@ Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: IsSilent
 ;  PEMBERSIHAN SAAT UNINSTALL
 ; ═══════════════════════════════════════════════════════════════════
 
-[UninstallDelete]
+; Hapus folder worker lama saat upgrade (bersihkan dari instalasi sebelumnya)
+[InstallDelete]
 Type: filesandordirs; Name: "{app}\worker"
+
+[UninstallDelete]
 Type: filesandordirs; Name: "{app}\tools"
 Type: filesandordirs; Name: "{app}\data"
 Type: filesandordirs; Name: "{app}\assets"

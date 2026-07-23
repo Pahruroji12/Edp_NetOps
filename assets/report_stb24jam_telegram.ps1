@@ -11,28 +11,28 @@ param(
 
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
-# Helper function untuk menutup file Excel yang sedang terbuka
+# Helper function untuk menutup file Excel yang sedang terbuka di instance Excel mana pun
 function Close-ExcelFile {
     param([string]$FilePath)
     
     try {
         $excelProc = Get-Process -Name "EXCEL" -ErrorAction SilentlyContinue
         if ($excelProc) {
-            $tempExcel = New-Object -ComObject Excel.Application -ErrorAction SilentlyContinue
-            if ($tempExcel) {
-                $tempExcel.DisplayAlerts = $false
-                foreach ($wb in $tempExcel.Workbooks) {
-                    if ($wb.FullName -eq $FilePath) {
+            # Sambungkan ke instance Excel yang sedang aktif/berjalan di Windows
+            $runningExcel = [System.Runtime.InteropServices.Marshal]::GetActiveObject("Excel.Application")
+            if ($runningExcel) {
+                $runningExcel.DisplayAlerts = $false
+                foreach ($wb in $runningExcel.Workbooks) {
+                    if ($wb.FullName -eq $FilePath -or $wb.Name -eq (Split-Path $FilePath -Leaf)) {
                         $wb.Close($false)
                         break
                     }
                 }
-                $tempExcel.Quit()
-                [System.Runtime.Interopservices.Marshal]::ReleaseComObject($tempExcel) | Out-Null
+                [System.Runtime.InteropServices.Marshal]::ReleaseComObject($runningExcel) | Out-Null
             }
         }
     } catch {
-        # Silent fail - tidak masalah jika gagal menutup
+        # Silent fail - jika tidak ada instance aktif atau gagal mengakses
     }
 }
 
@@ -68,16 +68,22 @@ Add-Type -AssemblyName System.Drawing
 function Export-SheetAsImage {
     param(
         [object]$Worksheet,
-        [string]$OutputPath
+        [string]$OutputPath,
+        [int]$ForceLastCol = 0
     )
     
     # Tentukan range data yang terisi
     $lastRow = $Worksheet.Cells.Item($Worksheet.Rows.Count, 2).End(-4162).Row  # xlUp
-    $lastCol = $Worksheet.Cells.Item(2, $Worksheet.Columns.Count).End(-4159).Column  # xlToLeft
     
-    # Pastikan minimal ada data
+    if ($ForceLastCol -gt 0) {
+        $lastCol = $ForceLastCol
+    } else {
+        $lastCol = $Worksheet.Cells.Item(2, $Worksheet.Columns.Count).End(-4159).Column  # xlToLeft
+        # Pastikan minimal ada data
+        if ($lastCol -lt 22) { $lastCol = 22 }  # Minimal sampai kolom V (Result Total)
+    }
+    
     if ($lastRow -lt 2) { $lastRow = 10 }
-    if ($lastCol -lt 22) { $lastCol = 22 }  # Minimal sampai kolom V (Result Total)
     
     $range = $Worksheet.Range($Worksheet.Cells.Item(1, 1), $Worksheet.Cells.Item($lastRow, $lastCol))
     
@@ -317,16 +323,23 @@ try {
     # ── STEP 1: Screenshot Sheet Harian ──
     $dailySheet = $null
     foreach ($sheet in $workbook.Worksheets) {
-        if ($sheet.Name -eq $SheetName) {
+        if ($sheet.Name.ToString().Trim() -eq $SheetName.ToString().Trim()) {
             $dailySheet = $sheet
             break
         }
     }
     
     if ($null -eq $dailySheet) {
+        # Kumpulkan nama sheet yang ada sebagai informasi diagnosis
+        $availableSheets = @()
+        foreach ($s in $workbook.Worksheets) {
+            $availableSheets += $s.Name.ToString()
+        }
+        $sheetsList = $availableSheets -join ", "
+        
         $errJson = @{
             success = $false
-            message = "Sheet harian '$SheetName' tidak ditemukan di file Excel."
+            message = "Sheet harian '$SheetName' tidak ditemukan di file Excel. (Sheet yang tersedia: $sheetsList)"
         } | ConvertTo-Json -Compress
         Write-Output $errJson
         exit 1
@@ -504,7 +517,7 @@ try {
             $tempTrendSheet.Cells.Item(100, 1).Select() | Out-Null  # Deselect
             
             # Screenshot sheet sementara
-            Export-SheetAsImage -Worksheet $tempTrendSheet -OutputPath $imgTrend | Out-Null
+            Export-SheetAsImage -Worksheet $tempTrendSheet -OutputPath $imgTrend -ForceLastCol $trendLastCol | Out-Null
             
             # Tutup workbook sementara TREND tanpa simpan
             $tempTrendWb.Close($false)
@@ -512,7 +525,7 @@ try {
             $tempTrendWb = $null
         } else {
             # Fallback jika kolom total tidak ada
-            Export-SheetAsImage -Worksheet $trendSheet -OutputPath $imgTrend | Out-Null
+            Export-SheetAsImage -Worksheet $trendSheet -OutputPath $imgTrend -ForceLastCol $trendLastCol | Out-Null
         }
     }
     

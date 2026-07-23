@@ -2,16 +2,35 @@ import { createClient } from "@supabase/supabase-js";
 import { CONFIG } from "./config";
 import { Ticket, ImapConfig } from "./types";
 
+// ── Supabase Client (menggunakan anon key, bukan service role key) ──
+// Auth dilakukan via signInWithPassword di initAuth()
 export const supabase = createClient(
   CONFIG.supabaseUrl,
-  CONFIG.supabaseServiceRoleKey,
+  CONFIG.supabaseAnonKey,
   {
     auth: {
       persistSession: false,
-      autoRefreshToken: false,
+      autoRefreshToken: true,
     },
   }
 );
+
+/**
+ * Login ke Supabase sebagai user biasa.
+ * Dipanggil 1x saat worker boot. SDK akan auto-refresh token.
+ */
+export async function initAuth(): Promise<void> {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: CONFIG.supabaseUserEmail,
+    password: CONFIG.supabaseUserPassword,
+  });
+
+  if (error) {
+    throw new Error(`[Auth] Login gagal: ${error.message}`);
+  }
+
+  console.log(`[Auth] Berhasil login sebagai ${data.user?.email}`);
+}
 
 /**
  * Fetch all tickets that don't have a ticket number yet.

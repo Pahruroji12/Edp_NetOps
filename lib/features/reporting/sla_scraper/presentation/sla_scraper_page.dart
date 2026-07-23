@@ -661,19 +661,28 @@ class _SlaScraperPageState extends State<SlaScraperPage> {
   }
 
   Widget _buildConsoleLine(BuildContext context, String line) {
-    // Pola regex untuk mendeteksi: {timestamp} [TAG] {pesan}
-    final regex = RegExp(r'^(.+?\s)\[(INFO|WARNING|ERROR)\](.*)$');
+    // Pola regex untuk mendeteksi: optional timestamp, lalu [TAG], lalu pesan
+    final regex = RegExp(
+      r'^(.*?\s)?\[(INFO|WARNING|ERROR|SYSTEM|SUCCESS|info|warning|error|system|success)\](.*)$',
+      caseSensitive: false,
+    );
     final match = regex.firstMatch(line);
 
     if (match != null) {
-      final timestamp = match.group(1)!;
-      final tag = match.group(2)!;
+      final timestamp = match.group(1) ?? '';
+      final tag = match.group(2)!.toUpperCase();
       final message = match.group(3)!;
 
       Color tagColor;
       switch (tag) {
         case 'INFO':
           tagColor = const Color(0xFF00E5FF); // Soft cyan/blue
+          break;
+        case 'SYSTEM':
+          tagColor = context.accentColor;
+          break;
+        case 'SUCCESS':
+          tagColor = context.successColor;
           break;
         case 'WARNING':
           tagColor = context.warningColor;
@@ -695,10 +704,11 @@ class _SlaScraperPageState extends State<SlaScraperPage> {
               color: context.textPrimary.withOpacity(0.85),
             ),
             children: [
-              TextSpan(
-                text: timestamp,
-                style: TextStyle(color: context.textSecondary.withOpacity(0.6)),
-              ),
+              if (timestamp.isNotEmpty)
+                TextSpan(
+                  text: timestamp,
+                  style: TextStyle(color: context.textSecondary.withOpacity(0.6)),
+                ),
               TextSpan(
                 text: '[$tag]',
                 style: TextStyle(
@@ -715,15 +725,13 @@ class _SlaScraperPageState extends State<SlaScraperPage> {
       );
     }
 
-    // Fallback jika format tidak menggunakan [INFO]/[ERROR]
+    // Fallback jika format tidak menggunakan tag
     Color color = context.textPrimary.withOpacity(0.85);
     bool isBold = false;
 
     if (line.startsWith('OK -') || line.startsWith('OK \u2014')) {
       color = context.successColor;
       isBold = true;
-    } else if (line.startsWith('Menyiapkan koneksi') || line.startsWith('Proses dibatalkan')) {
-      color = context.accentColor;
     }
 
     return Padding(

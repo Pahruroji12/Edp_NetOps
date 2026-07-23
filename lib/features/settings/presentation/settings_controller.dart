@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 import '../../../features/auth/domain/auth_state.dart';
 import '../data/settings_repository.dart';
@@ -43,6 +44,16 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
   // VNC
   final vncPassCtrl = TextEditingController();
   final vncOfficeCtrl = TextEditingController();
+  final vncAlarmCtrl = TextEditingController();
+
+  // Alarm Database Servers Configuration
+  List<Map<String, dynamic>> dbServers = [];
+  final List<TextEditingController> dbLabelCtrls = [];
+  final List<TextEditingController> dbHostCtrls = [];
+  final List<TextEditingController> dbPortCtrls = [];
+  final List<TextEditingController> dbUserCtrls = [];
+  final List<TextEditingController> dbPassCtrls = [];
+  final List<TextEditingController> dbNameCtrls = [];
 
   // SMTP
   final smtpHostCtrl = TextEditingController();
@@ -74,11 +85,15 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
   final telegramBotTokenCtrl = TextEditingController();
   final telegramChatIdCtrl = TextEditingController();
 
+  // Worker Configuration
+  final workerApiUrlCtrl = TextEditingController();
+
   // ── State: Password visibility toggles ──────────────────────
   bool obsKon = true;
   bool obsWdcp = true;
   bool obsVnc = true;
   bool obsVncOffice = true;
+  bool obsVncAlarm = true;
   bool obsSmtp = true;
   bool obsImap = true;
   bool obsFtp = true;
@@ -114,6 +129,11 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
 
   void toggleObsVncOffice() {
     obsVncOffice = !obsVncOffice;
+    notifyListeners();
+  }
+
+  void toggleObsVncAlarm() {
+    obsVncAlarm = !obsVncAlarm;
     notifyListeners();
   }
 
@@ -173,6 +193,8 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
         wdcpPassCtrl.text = data['wdcp_pass'] ?? '';
         vncPassCtrl.text = data['vnc_pass'] ?? '';
         vncOfficeCtrl.text = data['vnc_office'] ?? '';
+        vncAlarmCtrl.text = data['vnc_alarm'] ?? '';
+        _loadDbServers();
         smtpHostCtrl.text = data['smtp_host'] ?? 'smtp.gmail.com';
         smtpPortCtrl.text = data['smtp_port'] ?? '587';
         smtpUserCtrl.text = data['smtp_user'] ?? '';
@@ -188,6 +210,7 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
         telegramChatIdCtrl.text = data['telegram_chat_id'] ?? '';
         slaUserCtrl.text = data['sla_username'] ?? '';
         slaPassCtrl.text = data['sla_password'] ?? '';
+        workerApiUrlCtrl.text = data['worker_api_url'] ?? 'http://localhost:8080';
         notifyListeners();
       },
     );
@@ -231,7 +254,7 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
 
   void saveVnc() => savePartialSettings([
     {'key': 'vnc_pass', 'value': vncPassCtrl.text},
-    {'key': 'vnc_office', 'value': vncOfficeCtrl.text},
+    {'key': 'vnc_alarm', 'value': vncAlarmCtrl.text},
   ], 'Password VNC Disimpan!');
 
   void saveSmtpServer() => savePartialSettings([
@@ -272,6 +295,10 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
     {'key': 'sla_username', 'value': slaUserCtrl.text},
     {'key': 'sla_password', 'value': slaPassCtrl.text},
   ], 'Kredensial Login SLA Disimpan!');
+
+  void saveWorkerUrl() => savePartialSettings([
+    {'key': 'worker_api_url', 'value': workerApiUrlCtrl.text.trim()},
+  ], 'Worker API URL Disimpan!');
 
   // ── USER MANAGEMENT ─────────────────────────────────────────
 
@@ -392,6 +419,73 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
     notifyListeners();
   }
 
+  Future<void> _loadDbServers() async {
+    try {
+      final res = await Supabase.instance.client
+          .from('alarm_db_servers')
+          .select()
+          .order('server_label', ascending: true);
+
+      dbServers = List<Map<String, dynamic>>.from(res as List);
+
+      // Clear old controllers
+      for (var c in dbLabelCtrls) c.dispose();
+      for (var c in dbHostCtrls) c.dispose();
+      for (var c in dbPortCtrls) c.dispose();
+      for (var c in dbUserCtrls) c.dispose();
+      for (var c in dbPassCtrls) c.dispose();
+      for (var c in dbNameCtrls) c.dispose();
+
+      dbLabelCtrls.clear();
+      dbHostCtrls.clear();
+      dbPortCtrls.clear();
+      dbUserCtrls.clear();
+      dbPassCtrls.clear();
+      dbNameCtrls.clear();
+
+      for (var server in dbServers) {
+        dbLabelCtrls.add(TextEditingController(text: server['server_label']));
+        dbHostCtrls.add(TextEditingController(text: server['host']));
+        dbPortCtrls.add(TextEditingController(text: server['port']?.toString()));
+        dbUserCtrls.add(TextEditingController(text: server['username']));
+        dbPassCtrls.add(TextEditingController(text: server['password']));
+        dbNameCtrls.add(TextEditingController(text: server['database_name']));
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Gagal memuat db servers: $e');
+    }
+  }
+
+  Future<void> saveDbServers() async {
+    isLoading = true;
+    notifyListeners();
+
+    try {
+      final List<Map<String, dynamic>> upsertData = [];
+      for (int i = 0; i < dbServers.length; i++) {
+        upsertData.add({
+          'id': dbServers[i]['id'],
+          'server_label': dbLabelCtrls[i].text,
+          'host': dbHostCtrls[i].text,
+          'port': int.tryParse(dbPortCtrls[i].text) ?? 3306,
+          'username': dbUserCtrls[i].text,
+          'password': dbPassCtrls[i].text,
+          'database_name': dbNameCtrls[i].text,
+        });
+      }
+
+      await Supabase.instance.client.from('alarm_db_servers').upsert(upsertData);
+      notifySuccess('Konfigurasi Database Server Alarm Disimpan!');
+      _loadDbServers();
+    } catch (e) {
+      notifyError('Gagal menyimpan database server: $e');
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// Simpan user — dispatch ke create atau update berdasarkan mode.
   void saveUser() {
     if (isEditMode) {
@@ -413,6 +507,13 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
     winboxPortCtrl.dispose();
     vncPassCtrl.dispose();
     vncOfficeCtrl.dispose();
+    vncAlarmCtrl.dispose();
+    for (var c in dbLabelCtrls) c.dispose();
+    for (var c in dbHostCtrls) c.dispose();
+    for (var c in dbPortCtrls) c.dispose();
+    for (var c in dbUserCtrls) c.dispose();
+    for (var c in dbPassCtrls) c.dispose();
+    for (var c in dbNameCtrls) c.dispose();
     smtpHostCtrl.dispose();
     smtpPortCtrl.dispose();
     smtpUserCtrl.dispose();
@@ -429,6 +530,7 @@ class SettingsController extends ChangeNotifier with NotificationMixin {
     passUserCtrl.dispose();
     telegramBotTokenCtrl.dispose();
     telegramChatIdCtrl.dispose();
+    workerApiUrlCtrl.dispose();
     super.dispose();
   }
 }

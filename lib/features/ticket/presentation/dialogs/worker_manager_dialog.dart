@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/confirm_dialog.dart';
 import '../../../../core/widgets/custom_snackbar.dart';
 import '../ticket_controller.dart';
 import '../controllers/worker_controller.dart';
@@ -129,7 +128,7 @@ void showWorkerManagerDialog(
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Worker Manager',
+                    'Worker Monitor',
                     style: TextStyle(color: context.textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -198,7 +197,8 @@ void showWorkerManagerDialog(
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Sistem otomatis yang membaca email notifikasi provider dan mengupdate nomor tiket secara real-time tanpa input manual.',
+                            'Worker berjalan di komputer server secara independen. '
+                            'Halaman ini hanya untuk monitoring dan trigger sync manual.',
                             style: TextStyle(
                               color: context.textSecondary,
                               fontSize: 10,
@@ -221,6 +221,8 @@ void showWorkerManagerDialog(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        infoRow(Icons.dns_rounded, 'Worker URL', workerCtrl.workerUrl),
+                        const SizedBox(height: 6),
                         infoRow(Icons.schedule_rounded, 'Terakhir Run', lastRunStr),
                         const SizedBox(height: 6),
                         infoRow(Icons.check_circle_outline_rounded, 'Terakhir Sukses', lastSuccessStr),
@@ -262,82 +264,7 @@ void showWorkerManagerDialog(
                     ),
                   ],
                   const SizedBox(height: 16),
-                  if (workerCtrl.isHostMachine) ...[
-                    Row(
-                      children: [
-                        if (!isWorkerAlive || status == 'error')
-                          actionTile(
-                            icon: Icons.play_arrow_rounded,
-                            label: 'Start',
-                            color: Colors.blue,
-                            onTap: () {
-                              Navigator.pop(ctx);
-                              workerCtrl.startBackgroundWorker();
-                            },
-                          ),
-                        if (!isWorkerAlive || status == 'error') const SizedBox(width: 8),
-                        if (isWorkerAlive && !isRunning)
-                          actionTile(
-                            icon: Icons.stop_rounded,
-                            label: 'Stop',
-                            color: const Color(0xFFE57373),
-                            onTap: () async {
-                              Navigator.pop(ctx);
-                              final confirmed = await showConfirmDialog(
-                                context,
-                                title: 'Hentikan Worker?',
-                                message: 'Worker akan dinonaktifkan dan sinkronisasi otomatis akan terhenti.',
-                                confirmLabel: 'Hentikan',
-                                cancelLabel: 'Batal',
-                                icon: Icons.stop_circle_outlined,
-                                isDanger: true,
-                              );
-                              if (confirmed == true) {
-                                workerCtrl.stopBackgroundWorker();
-                              }
-                            },
-                          ),
-                        if (isWorkerAlive && !isRunning) const SizedBox(width: 8),
-                        if (isWorkerAlive)
-                          actionTile(
-                            icon: Icons.restart_alt_rounded,
-                            label: 'Restart',
-                            color: const Color(0xFFFFB74D),
-                            onTap: () async {
-                              Navigator.pop(ctx);
-                              CustomSnackBar.info('Merestart worker...');
-                              await workerCtrl.stopBackgroundWorker();
-                              await Future.delayed(const Duration(seconds: 2));
-                              await workerCtrl.startBackgroundWorker();
-                            },
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                  ] else ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: context.borderColor.withOpacity(0.04),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: context.borderColor.withOpacity(0.1)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline_rounded, size: 15, color: context.textSecondary),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Kontrol worker (Start/Stop/Restart) hanya dapat diakses dari Komputer Utama.',
-                              style: TextStyle(color: context.textSecondary, fontSize: 10, height: 1.3),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+                  // ── Tombol Aksi: Hanya Sync Manual & Cek Status ──
                   Row(
                     children: [
                       if (isWorkerAlive && !isRunning)

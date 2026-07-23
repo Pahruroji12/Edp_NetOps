@@ -1,6 +1,7 @@
 import { CONFIG } from "./config";
 import { startHttpServer } from "./server";
 import { syncTicketsFromEmail } from "./syncTicketEmail";
+import { initAuth } from "./supabaseClient";
 import { WorkerStatusService } from "./workerStatusService";
 
 /**
@@ -102,7 +103,10 @@ async function main(): Promise<void> {
   console.log(`Jam Operasional: ${formatWorkingHours()}`);
   console.log("=========================================");
 
-  // 1. Set initial state to idle in database
+  // 1. Login ke Supabase sebagai user (menghormati RLS)
+  await initAuth();
+
+  // 2. Set initial state to idle in database
   try {
     await WorkerStatusService.setIdle();
   } catch (e) {
@@ -112,14 +116,14 @@ async function main(): Promise<void> {
     );
   }
 
-  // 2. Start HTTP Server for UI interaction (Port: 8080)
+  // 3. Start HTTP Server for UI interaction (Port: 8080)
   startHttpServer();
 
-  // 3. Run first sync immediately on boot (if within working hours)
+  // 4. Run first sync immediately on boot (if within working hours)
   console.log("[Scheduler] Booting up: Running initial synchronization...");
   await runIntervalSync();
 
-  // 4. Start periodic scheduler loop
+  // 5. Start periodic scheduler loop
   const intervalMs = CONFIG.syncIntervalMinutes * 60 * 1000;
   setInterval(async () => {
     await runIntervalSync();

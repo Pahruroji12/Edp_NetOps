@@ -1,6 +1,11 @@
 import { Ticket, ImapConfig } from "./types";
 export declare const supabase: import("@supabase/supabase-js").SupabaseClient<any, "public", "public", any, any>;
 /**
+ * Login ke Supabase sebagai user biasa.
+ * Dipanggil 1x saat worker boot. SDK akan auto-refresh token.
+ */
+export declare function initAuth(): Promise<void>;
+/**
  * Fetch all tickets that don't have a ticket number yet.
  */
 export declare function getActiveTickets(): Promise<Ticket[]>;

@@ -29,6 +29,14 @@ class SlaScraperController extends ChangeNotifier with NotificationMixin {
 
   Process? _process;
 
+  // ── Timestamp helper ────────────────────────────────────────
+  String _ts() {
+    final n = DateTime.now();
+    String p(int v) => v.toString().padLeft(2, '0');
+    String ms(int v) => v.toString().padLeft(3, '0');
+    return "${n.year}-${p(n.month)}-${p(n.day)} ${p(n.hour)}:${p(n.minute)}:${p(n.second)},${ms(n.millisecond)}";
+  }
+
   // ── Getters ──────────────────────────────────────────────────
   bool get hasRetentionWarning {
     final daysAgo = DateTime.now().difference(startDate).inDays;
@@ -141,7 +149,7 @@ class SlaScraperController extends ChangeNotifier with NotificationMixin {
 
     isRunning = true;
     logLines.clear();
-    logLines.add('Menyiapkan koneksi dan menjalankan program scraper...');
+    logLines.add('${_ts()} [system] Menyiapkan koneksi dan menjalankan program scraper...');
     notifyListeners();
 
     try {
@@ -233,7 +241,7 @@ class SlaScraperController extends ChangeNotifier with NotificationMixin {
     } catch (e) {
       isRunning = false;
       _process = null;
-      logLines.add('[error] EXCEPTION: $e');
+      logLines.add('${_ts()} [error] EXCEPTION: $e');
       notifyError('Terjadi kesalahan: $e');
       notifyListeners();
     }
@@ -245,7 +253,7 @@ class SlaScraperController extends ChangeNotifier with NotificationMixin {
       _process!.kill();
       _process = null;
       isRunning = false;
-      logLines.add('Proses dibatalkan oleh pengguna.');
+      logLines.add('${_ts()} [system] Proses dibatalkan oleh pengguna.');
       notifyWarning('Proses dibatalkan.');
       notifyListeners();
     }

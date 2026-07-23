@@ -601,7 +601,7 @@ class _Stb24JamPageState extends State<Stb24JamPage> {
                 ),
               ),
               Text(
-                "Laporan Bulanan STB — Network Tools",
+                "Laporan Bulanan STB — Reporting",
                 style: TextStyle(color: context.textSecondary, fontSize: 10),
               ),
             ],

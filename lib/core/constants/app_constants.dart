@@ -10,7 +10,7 @@ class AppConstants {
 
   // ── Aplikasi ───────────────────────────────────────────────────
   static const String appName = 'EDP NetOps';
-  static const String appVersion = '3.0.0';
+  static const String appVersion = '3.1.0';
 
   // ── Path Executable (Windows Desktop) ──────────────────────────
   static const String basePath = r'D:\Edp NetOps';

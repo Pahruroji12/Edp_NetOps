@@ -33,9 +33,12 @@ class FeatureAvailability {
   static bool get canUseWdcpScan => PlatformHelper.isDesktop;
   static bool get canUseWdcpScanner => canUseWdcpScan;
 
+  /// Test Alarm Dial — hanya di Desktop (menggunakan socket & Process VNC)
+  static bool get canUseAlarmTest => PlatformHelper.isDesktop;
+
   /// Network Tools group — semua sub-fitur network
   static bool get canUseNetworkTools =>
-      canUsePing || canUseFtp || canUseMikrotikApi || canUseWdcpScan;
+      canUsePing || canUseFtp || canUseMikrotikApi || canUseWdcpScan || canUseAlarmTest;
 
   // ══════════════════════════════════════════════════════════════
   // PROCESS LAUNCHER (Windows-only tools)

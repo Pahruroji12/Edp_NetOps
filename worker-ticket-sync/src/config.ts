@@ -7,7 +7,12 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 export const CONFIG = {
   supabaseUrl: process.env.SUPABASE_URL || "",
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
+
+  // ─── Auth: Login sebagai user biasa (menghormati RLS) ───
+  supabaseUserEmail: process.env.SUPABASE_USER_EMAIL || "",
+  supabaseUserPassword: process.env.SUPABASE_USER_PASSWORD || "",
+
   port: parseInt(process.env.PORT || "8080", 10),
   syncIntervalMinutes: parseInt(process.env.SYNC_INTERVAL_MINUTES || "10", 10),
 
@@ -27,9 +32,16 @@ export const CONFIG = {
 };
 
 // Validate critical parameters
-if (!CONFIG.supabaseUrl || !CONFIG.supabaseServiceRoleKey) {
+if (!CONFIG.supabaseUrl || !CONFIG.supabaseAnonKey) {
   console.warn(
-    "WARNING: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are not set in environment variables! " +
+    "WARNING: SUPABASE_URL and SUPABASE_ANON_KEY are not set in environment variables! " +
       "Supabase integration will fail."
+  );
+}
+
+if (!CONFIG.supabaseUserEmail || !CONFIG.supabaseUserPassword) {
+  console.warn(
+    "WARNING: SUPABASE_USER_EMAIL and SUPABASE_USER_PASSWORD are not set! " +
+      "Worker cannot authenticate with Supabase."
   );
 }
